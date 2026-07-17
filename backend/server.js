@@ -217,10 +217,12 @@ app.post('/api/fetch-product', async (req, res) => {
   }
 });
 
-// Serve static assets in production mode
+// Serve static assets in production mode if the frontend build directory exists
 const path = require('path');
-if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true') {
-  const distPath = path.join(__dirname, '../frontend/dist');
+const fs = require('fs');
+const distPath = path.join(__dirname, '../frontend/dist');
+
+if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
