@@ -37,8 +37,40 @@ const scrapeFlipkart = async (page, url) => {
     throw new Error('Product title not found on Flipkart. The page format may have changed or the link is invalid.');
   }
 
-  // Attempt to extract price
+  // Attempt to extract price (prioritizing 100% accurate metadata and JSON-LD)
   const price = await page.evaluate(() => {
+    // 1. Try itemprop price tag first (standardized selling price, ignores MRP discount tables)
+    const itempropPrice = document.querySelector('meta[itemprop="price"]');
+    if (itempropPrice && itempropPrice.getAttribute('content')) {
+      const val = itempropPrice.getAttribute('content').trim();
+      if (val && val !== '0') return val;
+    }
+
+    // 2. Try OpenGraph price tag
+    const ogPrice = document.querySelector('meta[property="product:price:amount"]');
+    if (ogPrice && ogPrice.getAttribute('content')) {
+      const val = ogPrice.getAttribute('content').trim();
+      if (val && val !== '0') return val;
+    }
+
+    // 3. Try JSON-LD Product schema
+    const jsonLdTags = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const tag of jsonLdTags) {
+      try {
+        const data = JSON.parse(tag.textContent);
+        const schemas = Array.isArray(data) ? data : [data];
+        for (const schema of schemas) {
+          if (schema && (schema['@type'] === 'Product' || schema['@type'] === 'http://schema.org/Product')) {
+            if (schema.offers && schema.offers.price) {
+              const val = String(schema.offers.price).trim();
+              if (val && val !== '0') return val;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 4. Try target DOM selectors (specifically filtering out strike-through MRP elements)
     const priceSelectors = [
       '.Nx9zhl', 
       '._30jeq3', 
@@ -51,14 +83,27 @@ const scrapeFlipkart = async (page, url) => {
     for (const selector of priceSelectors) {
       const el = document.querySelector(selector);
       if (el) {
-        const text = el.textContent.trim();
-        if (text) return text;
+        // Avoid strike-through MRP nodes
+        const isStrike = el.classList.contains('_3I9_R3') || 
+                         el.classList.contains('y3Z5D1') || 
+                         window.getComputedStyle(el).textDecoration.includes('line-through');
+        if (!isStrike) {
+          const text = el.textContent.trim();
+          if (text) return text;
+        }
       }
     }
 
-    // Fallback: search for elements with Rupee symbol
+    // 5. Fallback: search for elements with Rupee symbol, excluding strike-through
     const rupeeEls = Array.from(document.querySelectorAll('*'))
-      .filter(el => el.children.length === 0 && el.textContent.includes('₹') && el.textContent.length < 15)
+      .filter(el => {
+        if (el.children.length !== 0 || !el.textContent.includes('₹') || el.textContent.length >= 15) return false;
+        // Avoid strike-through elements
+        const style = window.getComputedStyle(el);
+        return !style.textDecoration.includes('line-through') && 
+               !el.classList.contains('_3I9_R3') && 
+               !el.classList.contains('y3Z5D1');
+      })
       .map(el => el.textContent.trim());
     return rupeeEls.length > 0 ? rupeeEls[0] : '';
   });
