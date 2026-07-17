@@ -29,7 +29,6 @@ export const App: React.FC = () => {
   const [productDetails, setProductDetails] = useState<ProductDetails | null>(null);
   const [savedOrder, setSavedOrder] = useState<any>(null);
   const [whatsappText, setWhatsappText] = useState('');
-  const [mainTiltStyle, setMainTiltStyle] = useState<React.CSSProperties>({});
   const [selectedCity, setSelectedCity] = useState<string>('Nepalgunj');
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'customs' | 'support' | 'guide' | 'pricing' | 'help' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -52,29 +51,6 @@ export const App: React.FC = () => {
         estimatedPriceNPR
       });
     }
-  };
-
-  const handleMainMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateY = ((x - centerX) / centerX) * 6; // tilt horizontally
-    const rotateX = -((y - centerY) / centerY) * 6; // tilt vertically
-    
-    setMainTiltStyle({
-      transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
-      transition: 'transform 0.05s ease-out'
-    });
-  };
-
-  const handleMainMouseLeave = () => {
-    setMainTiltStyle({
-      transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg)',
-      transition: 'transform 0.4s ease-out'
-    });
   };
 
   const handleGetPrice = async (url: string) => {
@@ -286,12 +262,8 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main wizard interface */}
-      <main 
-        onMouseMove={handleMainMouseMove}
-        onMouseLeave={handleMainMouseLeave}
-        className="flex-1 flex items-center justify-center py-6"
-      >
-        <div className="w-full" style={mainTiltStyle}>
+      <main className="flex-1 flex items-center justify-center py-6">
+        <div className="w-full">
           {step === 1 && (
             <Hero 
               onGetPrice={handleGetPrice} 

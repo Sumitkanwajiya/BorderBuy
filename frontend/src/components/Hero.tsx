@@ -23,45 +23,6 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
   const [url, setUrl] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [tiltStyle, setTiltStyle] = useState<{ [key: string]: React.CSSProperties }>({});
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, cardName: string) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateY = ((x - centerX) / centerX) * 15; // horizontal rotation
-    const rotateX = -((y - centerY) / centerY) * 15; // vertical rotation
-    
-    setTiltStyle(prev => ({
-      ...prev,
-      [cardName]: {
-        transform: `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`,
-        transition: 'transform 0.05s ease-out'
-      }
-    }));
-  };
-
-  const handleMouseLeave = (cardName: string) => {
-    setTiltStyle(prev => ({
-      ...prev,
-      [cardName]: {
-        transform: 'perspective(600px) rotateX(0deg) rotateY(0deg) scale(1)',
-        transition: 'transform 0.4s ease-out'
-      }
-    }));
-    
-    setTimeout(() => {
-      setTiltStyle(prev => {
-        const next = { ...prev };
-        delete next[cardName];
-        return next;
-      });
-    }, 400);
-  };
 
   useEffect(() => {
     if (!url) {
@@ -108,6 +69,35 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
     onGetPrice(url);
   };
 
+  const renderAnimatedText = (text: string, startDelay: number) => {
+    const words = text.split(' ');
+    let globalIndex = 0;
+
+    return words.map((word, wordIdx) => {
+      const chars = word.split('');
+      return (
+        <span key={wordIdx} className="inline-block whitespace-nowrap">
+          {chars.map((char) => {
+            const charIndex = globalIndex++;
+            return (
+              <span
+                key={charIndex}
+                className="animate-char text-3d"
+                style={{
+                  animationDelay: `${startDelay + charIndex * 0.06}s`,
+                }}
+              >
+                {char}
+              </span>
+            );
+          })}
+          {/* Space between words */}
+          {wordIdx < words.length - 1 && <span className="inline-block">&nbsp;</span>}
+        </span>
+      );
+    });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center text-center px-4 py-12 md:py-24 max-w-4xl mx-auto">
       {/* Premium Badge */}
@@ -119,10 +109,10 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       {/* Main Headline */}
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.3] mb-8 select-none">
         <span className="block mb-2 text-slate-900">
-          Buy from India.
+          {renderAnimatedText("Buy from India.", 0)}
         </span>
         <span className="block text-indigo-650">
-          Delivered to Nepal.
+          {renderAnimatedText("Delivered to Nepal.", 0.8)}
         </span>
       </h1>
 
@@ -243,9 +233,6 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
           {SUPPORTED_PLATFORMS.map((platform) => (
             <div
               key={platform.name}
-              onMouseMove={(e) => handleMouseMove(e, platform.name)}
-              onMouseLeave={() => handleMouseLeave(platform.name)}
-              style={tiltStyle[platform.name]}
               className={`flex items-center justify-center md:justify-start gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-100 bg-white/50 text-slate-500 hover:bg-white shadow-xs transition-all duration-300 hover:shadow-md cursor-default ${platform.glowClass}`}
             >
               <span className="text-base group-hover:scale-110 transition-transform duration-200">{platform.logo}</span>
