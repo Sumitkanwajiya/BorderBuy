@@ -1,13 +1,15 @@
-const { chromium } = require('playwright');
-
 /**
- * Scrapes product details from Amazon India (amazon.in)
+ * Scrapes product details from Amazon India (amazon.in) or Amazon US (amazon.com)
+ * Optimized for maximum speed, minimal IPC roundtrips, and zero fixed wait times.
  * @param {import('playwright').Page} page
  * @param {string} url
  * @returns {Promise<{title: string, price: string, image: string}>}
  */
 async function scrapeAmazon(page, url) {
-  // Set realistic request headers
+  const startTime = Date.now();
+  console.log(`[AmazonScraper] Starting scrape for URL: ${url}`);
+
+  // Set standard headers to bypass bot blocks
   await page.setExtraHTTPHeaders({
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -15,65 +17,87 @@ async function scrapeAmazon(page, url) {
     'Cache-Control': 'max-age=0'
   });
 
-  // Pre-land on homepage to acquire session cookies
-  let alreadyPrelanded = false;
-  if (page.prelandedDomains && page.prelandedDomains.has('amazon')) {
-    alreadyPrelanded = true;
-  }
+  // Direct navigation - Bypasses redundant homepage pre-landing on initial request
+  const startNav = Date.now();
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+  const navDuration = Date.now() - startNav;
+  console.log(`[AmazonScraper] Page navigation completed in ${navDuration}ms.`);
 
-  if (!alreadyPrelanded) {
+  // Wait for product details elements or captcha input
+  const startWait = Date.now();
+  await page.waitForSelector('#productTitle, #ppd, #centerCol, input#captchacharacters, #captchacharacters', { timeout: 3000 }).catch(() => {});
+  const waitDuration = Date.now() - startWait;
+  console.log(`[AmazonScraper] Wait selector completed in ${waitDuration}ms.`);
+
+  // Helper function to update location zip codes
+  const setAmazonLocation = async (targetPage, targetUrl) => {
+    const zipStart = Date.now();
     try {
-      const homepage = new URL(url).origin;
-      console.log(`Pre-landing on Amazon homepage: ${homepage} for session cookies...`);
-      await page.goto(homepage, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForSelector('#nav-logo, body', { timeout: 5000 }).catch(() => {});
-      if (page.prelandedDomains) {
-        page.prelandedDomains.add('amazon');
-      }
+      const isUS = targetUrl.includes('amazon.com');
+      const zipCode = isUS ? '10001' : '400001';
+      
+      console.log(`[AmazonScraper] Price missing. Updating ZIP location to ${zipCode} to reveal local product availability...`);
+      
+      const locationBtn = await targetPage.$('#nav-global-location-popover-link');
+      if (!locationBtn) return;
+      
+      await locationBtn.click();
+      await targetPage.waitForSelector('#GLUXZipUpdateInput', { timeout: 3000 });
+
+      // Fast typing delay
+      await targetPage.type('#GLUXZipUpdateInput', zipCode, { delay: 10 });
+      
+      // Submit ZIP input
+      await targetPage.click('#GLUXZipUpdate');
+      await targetPage.waitForSelector('input[name="glowDoneButton"], #GLUXConfirmClose', { timeout: 2500 }).catch(() => {});
+
+      // Click Continue/Done button inside popover
+      await targetPage.evaluate(() => {
+        const clickables = Array.from(document.querySelectorAll('input, button, span, a, div'));
+        const btn = clickables.find(el => {
+          const txt = (el.textContent || '').trim().toLowerCase() || (el.value || '').trim().toLowerCase() || '';
+          const matches = txt === 'continue' || txt === 'done' || el.name === 'glowDoneButton' || el.id === 'GLUXConfirmClose';
+          return matches && el.offsetParent !== null;
+        });
+        if (btn) btn.click();
+      });
+      
+      // Wait for page to reload navigation state
+      await targetPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 6000 }).catch(() => {});
+      await targetPage.waitForSelector('#productTitle, #ppd, #centerCol', { timeout: 3000 }).catch(() => {});
+      
+      console.log(`[AmazonScraper] Geolocation self-healing completed in ${Date.now() - zipStart}ms.`);
     } catch (err) {
-      console.warn('Pre-landing homepage navigation failed, proceeding directly to product:', err.message);
+      console.warn('[AmazonScraper] Geolocation self-healing failed:', err.message);
     }
-  } else {
-    console.log('Amazon already pre-landed in this context. Skipping...');
-  }
+  };
 
-  console.log(`Navigating to Amazon URL: ${url}`);
-  
-  // Navigate with a generous timeout and wait for load/domcontentloaded
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  // Helper to run a unified DOM evaluation containing Title, Price, Image, and Captcha checks
+  const runUnifiedDOMQuery = async (targetPage) => {
+    const startEval = Date.now();
+    const result = await targetPage.evaluate(() => {
+      // 1. Check for CAPTCHA challenges
+      const hasCaptcha = !!(
+        document.querySelector('input#captchacharacters') || 
+        document.querySelector('#captchacharacters') || 
+        document.querySelector('form[action*="/captcha"]')
+      );
+      if (hasCaptcha) {
+        return { isCaptcha: true };
+      }
 
-  // Wait for product details elements rather than a hard timeout
-  await page.waitForSelector('#productTitle, #ppd, #centerCol', { timeout: 3500 }).catch(() => {});
+      // 2. Extract Title
+      const titleEl = document.querySelector('#productTitle');
+      const titleStr = titleEl ? titleEl.textContent.trim() : '';
 
-  // Check if we hit a robot/captcha challenge page
-  const pageContent = await page.content();
-  if (pageContent.includes('Type the characters you see in this image') || 
-      pageContent.includes('Robot Check') || 
-      pageContent.includes('continue shopping')) {
-    throw new Error('Scraping blocked by Amazon CAPTCHA. Please try again later.');
-  }
-
-  // Attempt to extract title
-  const title = await page.evaluate(() => {
-    const titleEl = document.querySelector('#productTitle');
-    return titleEl ? titleEl.textContent.trim() : '';
-  });
-
-  if (!title) {
-    throw new Error('Product title not found. The URL might be invalid or access was restricted.');
-  }
-
-  // Helper function to extract price from page DOM
-  const getPriceFromDOM = async (targetPage) => {
-    return targetPage.evaluate(() => {
-      // Search only within the main product details container to avoid recommended/sponsored items
+      // 3. Extract Price (excluding list prices/strike-through)
+      let priceStr = '';
       const mainContainer = document.querySelector('#ppd') || 
                             document.querySelector('#centerCol') || 
                             document.querySelector('#rightCol') || 
                             document;
 
-      // Amazon price selectors in order of specificity
-      const selectors = [
+      const priceSelectors = [
         '#corePriceDisplay_desktop_feature_div .a-price-whole',
         '#corePrice_feature_div .a-price-whole',
         '#priceblock_ourprice',
@@ -84,10 +108,9 @@ async function scrapeAmazon(page, url) {
         'span.a-price .a-offscreen'
       ];
 
-      for (const selector of selectors) {
+      for (const selector of priceSelectors) {
         const elements = Array.from(mainContainer.querySelectorAll(selector));
         for (const el of elements) {
-          // Exclude strike-through, crossed-out basis prices (original M.R.P. / list price)
           const isStrikeThrough = el.closest('.a-text-price') || 
                                  el.closest('.basisPrice') || 
                                  el.closest('del') || 
@@ -97,103 +120,101 @@ async function scrapeAmazon(page, url) {
           
           if (!isStrikeThrough) {
             const text = el.textContent.trim();
-            if (text) return text;
+            if (text) {
+              priceStr = text;
+              break;
+            }
+          }
+        }
+        if (priceStr) break;
+      }
+
+      // Fallback price meta tags check
+      if (!priceStr) {
+        const priceMeta = document.querySelector('meta[property="product:price:amount"]');
+        if (priceMeta) priceStr = priceMeta.getAttribute('content');
+      }
+
+      // 4. Extract Product Image URL
+      let imgUrl = '';
+      const imgSelectors = [
+        '#landingImage',
+        '#imgBlkFront',
+        '#main-image',
+        '#img-canvas img',
+        '#booksHeaderGlideImages img'
+      ];
+
+      for (const selector of imgSelectors) {
+        const img = document.querySelector(selector);
+        if (img) {
+          const dynamicImgStr = img.getAttribute('data-a-dynamic-image');
+          if (dynamicImgStr) {
+            try {
+              const urls = Object.keys(JSON.parse(dynamicImgStr));
+              if (urls.length > 0) {
+                imgUrl = urls[urls.length - 1];
+                break;
+              }
+            } catch (e) {}
+          }
+          
+          const src = img.getAttribute('src');
+          if (src && !src.startsWith('data:')) {
+            imgUrl = src;
+            break;
           }
         }
       }
 
-      // Try finding by microdata or schema tags
-      const priceMeta = document.querySelector('meta[property="product:price:amount"]');
-      if (priceMeta) return priceMeta.getAttribute('content');
+      if (!imgUrl) {
+        const metaImg = document.querySelector('meta[property="og:image"]');
+        if (metaImg) imgUrl = metaImg.getAttribute('content');
+      }
 
-      return '';
+      return {
+        isCaptcha: false,
+        title: titleStr,
+        price: priceStr,
+        image: imgUrl
+      };
     });
+
+    console.log(`[AmazonScraper] DOM evaluation query completed in ${Date.now() - startEval}ms.`);
+    return result;
   };
 
-  // Helper to change Amazon delivery ZIP code to reveal prices
-  const setAmazonLocation = async (targetPage, targetUrl) => {
-    try {
-      const isUS = targetUrl.includes('amazon.com');
-      const zipCode = isUS ? '10001' : '400001';
-      
-      console.log(`Price not found on initial load. Attempting location self-healing (ZIP: ${zipCode})...`);
-      
-      const locationBtn = await targetPage.$('#nav-global-location-popover-link');
-      if (!locationBtn) return;
-      
-      await locationBtn.click();
-      await targetPage.waitForSelector('#GLUXZipUpdateInput', { timeout: 4000 });
-      await targetPage.waitForTimeout(200);
+  // Run initial DOM evaluation
+  let product = await runUnifiedDOMQuery(page);
 
-      // Type zip code human-like to bypass bot check
-      await targetPage.type('#GLUXZipUpdateInput', zipCode, { delay: 50 });
-      await targetPage.waitForTimeout(200);
+  // Throw if blocked by CAPTCHA challenge
+  if (product.isCaptcha) {
+    throw new Error('Scraping blocked by Amazon CAPTCHA. Please try again later.');
+  }
 
-      await targetPage.click('#GLUXZipUpdate');
-      await targetPage.waitForSelector('input[name="glowDoneButton"], #GLUXConfirmClose, #GLUXZipUpdateInput', { timeout: 3000 }).catch(() => {});
-      await targetPage.waitForTimeout(300);
-
-      // Click Continue/Done using page.evaluate to find the actual interactive element
-      const clickResult = await targetPage.evaluate(() => {
-        const clickables = Array.from(document.querySelectorAll('input, button'));
-        let btn = clickables.find(el => {
-          const txt = (el.textContent || '').trim().toLowerCase() || (el.value || '').trim().toLowerCase() || '';
-          const matches = txt === 'continue' || txt === 'done' || el.name === 'glowDoneButton' || el.id === 'GLUXConfirmClose';
-          return matches && el.offsetParent !== null;
-        });
-
-        // Fallback to check any element if input/button is not found
-        if (!btn) {
-          const allElements = Array.from(document.querySelectorAll('span, a, div'));
-          btn = allElements.find(el => {
-            const txt = (el.textContent || '').trim().toLowerCase() || (el.value || '').trim().toLowerCase() || '';
-            const matches = txt === 'continue' || txt === 'done';
-            return matches && el.offsetParent !== null;
-          });
-        }
-
-        if (btn) {
-          btn.click();
-          return `clicked: ${btn.tagName} - ${btn.value || btn.textContent}`;
-        }
-        return 'no button found';
-      });
-      
-      console.log('Location update popover click result:', clickResult);
-      
-      // Wait for reload
-      await targetPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {});
-      await targetPage.waitForSelector('#corePriceDisplay_desktop_feature_div, #productTitle, body', { timeout: 3000 }).catch(() => {});
-      console.log(`Delivery location successfully updated to ZIP: ${zipCode}`);
-    } catch (err) {
-      console.warn('Location self-healing failed:', err.message);
-    }
-  };
-
-  // Attempt to extract price
-  let rawPrice = await getPriceFromDOM(page);
-
-  // Self-heal location if price is missing (geographically hidden)
-  if (!rawPrice) {
+  // Trigger self-healing location flow if price is hidden geographically
+  if (!product.price) {
     await setAmazonLocation(page, url);
-    rawPrice = await getPriceFromDOM(page);
+    // Query DOM once more after geolocation reload
+    product = await runUnifiedDOMQuery(page);
+  }
+
+  // Enforce title presence
+  if (!product.title) {
+    throw new Error('Product title not found on Amazon. The URL might be invalid or access was restricted.');
   }
 
   // Clean price: Extract numeric part
   let cleanedPrice = '';
-  if (rawPrice) {
-    let priceStr = rawPrice;
-    // If it's a range (e.g. "₹499 - ₹999" or "₹499 to ₹999"), take the first price in the range
-    if (priceStr.includes('-')) {
-      priceStr = priceStr.split('-')[0];
-    } else if (priceStr.toLowerCase().includes('to')) {
-      priceStr = priceStr.toLowerCase().split('to')[0];
+  if (product.price) {
+    let priceVal = product.price;
+    if (priceVal.includes('-')) {
+      priceVal = priceVal.split('-')[0];
+    } else if (priceVal.toLowerCase().includes('to')) {
+      priceVal = priceVal.toLowerCase().split('to')[0];
     }
 
-    // Remove currency symbol, spaces, commas, and trailing dot/cents
-    cleanedPrice = priceStr.replace(/[^\d.]/g, '');
-    
-    // If there is a decimal point and it's followed by .00, remove it for clean integer
+    cleanedPrice = priceVal.replace(/[^\d.]/g, '');
     if (cleanedPrice.includes('.')) {
       const parts = cleanedPrice.split('.');
       if (parts[1] === '00' || parts[1] === '') {
@@ -202,55 +223,17 @@ async function scrapeAmazon(page, url) {
     }
   }
 
-  // Enforce that price must be found and non-zero
+  // Enforce price presence
   if (!cleanedPrice || cleanedPrice === '0' || parseFloat(cleanedPrice) === 0) {
     throw new Error('Product price not found. The item might be out of stock, currently unavailable, or restricted in this region.');
   }
 
-  // Attempt to extract image URL
-  const image = await page.evaluate(() => {
-    const imgSelectors = [
-      '#landingImage',
-      '#imgBlkFront',
-      '#main-image',
-      '#img-canvas img',
-      '#booksHeaderGlideImages img'
-    ];
-
-    for (const selector of imgSelectors) {
-      const img = document.querySelector(selector);
-      if (img) {
-        // Amazon landing image often uses data-a-dynamic-image which contains multiple resolutions.
-        // We can parse the JSON keys to find the largest image or just use src.
-        const dynamicImgStr = img.getAttribute('data-a-dynamic-image');
-        if (dynamicImgStr) {
-          try {
-            const urls = Object.keys(JSON.parse(dynamicImgStr));
-            if (urls.length > 0) {
-              // Return the last one (usually highest resolution) or first
-              return urls[urls.length - 1];
-            }
-          } catch (e) {
-            // Ignore JSON parse error and fallback to src
-          }
-        }
-        
-        const src = img.getAttribute('src');
-        if (src && !src.startsWith('data:')) return src;
-      }
-    }
-
-    // Fallback: search meta tags
-    const metaImg = document.querySelector('meta[property="og:image"]');
-    if (metaImg) return metaImg.getAttribute('content');
-
-    return '';
-  });
+  console.log(`[AmazonScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
-    title,
-    price: cleanedPrice || '0', // fallback if price not found
-    image: image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500' // fallback placeholder
+    title: product.title,
+    price: cleanedPrice,
+    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'
   };
 }
 
