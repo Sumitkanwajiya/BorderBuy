@@ -9,8 +9,9 @@ if (process.env.DEBUG !== 'true') {
 
 const express = require('express');
 const cors = require('cors');
-const { chromium } = require('playwright');
 const { getScraper } = require('./scrapers');
+
+const scraperService = require('./services/scraperService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,90 +19,6 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Latency & load optimization variables
-let browser = null;
-let sharedContext = null;
-let contextUseCount = 0;
-const prelandedDomains = new Set();
-
-const SCRAPE_CACHE = new Map();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache
-
-// Periodic cleanup of expired cache entries to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of SCRAPE_CACHE.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      SCRAPE_CACHE.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
-// Programmatic self-healing browser installer at runtime startup
-let isPlaywrightVerified = false;
-async function ensurePlaywrightInstalled() {
-  if (isPlaywrightVerified) return;
-  const { execSync } = require('child_process');
-  try {
-    console.log('Verifying Playwright chromium browser binaries...');
-    execSync('npx playwright install chromium', { stdio: 'inherit' });
-    isPlaywrightVerified = true;
-    console.log('Playwright chromium binaries verified successfully.');
-  } catch (err) {
-    console.error('Playwright auto-installation failed:', err.message);
-  }
-}
-
-async function getBrowserContext() {
-  await ensurePlaywrightInstalled();
-  if (!browser || !browser.isConnected()) {
-    console.log('Launching persistent Playwright browser...');
-    const launchArgs = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-web-security'
-    ];
-    browser = await chromium.launch({
-      headless: true,
-      args: launchArgs
-    });
-    sharedContext = null;
-  }
-
-  // Recycle context to prevent memory leak and cookie bloat
-  if (sharedContext && contextUseCount >= 50) {
-    console.log('Recycling shared browser context...');
-    try {
-      await sharedContext.close();
-    } catch (err) {
-      console.error('Error closing context during recycling:', err.message);
-    }
-    sharedContext = null;
-  }
-
-  if (!sharedContext) {
-    console.log('Creating new shared browser context...');
-    sharedContext = await browser.newContext({
-      viewport: { width: 1280, height: 800 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    });
-    
-    // Enable stealth mode to bypass robot detection
-    await sharedContext.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
-      });
-    });
-
-    contextUseCount = 0;
-    prelandedDomains.clear();
-  }
-
-  contextUseCount++;
-  return { context: sharedContext, prelandedDomains };
-}
 
 /**
  * Helper to validate if a URL is safe to prevent SSRF vulnerabilities.
@@ -145,6 +62,11 @@ function isSafeUrl(urlStr) {
   }
 }
 
+// Scraper Health check API endpoint
+app.get('/api/health', (req, res) => {
+  return res.json(scraperService.getHealthStatus());
+});
+
 // Main scraping endpoint
 app.post('/api/fetch-product', async (req, res) => {
   const { url } = req.body;
@@ -158,84 +80,13 @@ app.post('/api/fetch-product', async (req, res) => {
     return res.status(400).json({ error: 'Invalid or unsafe URL format. Only public HTTP/HTTPS URLs are allowed.' });
   }
 
-  // Check cache
-  const cached = SCRAPE_CACHE.get(url);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    console.log(`Cache hit for URL: ${url}`);
-    return res.json(cached.data);
-  }
-
-  let page;
   try {
-    // Resolve which scraper to use
-    const scrape = getScraper(url);
-
-    const { context, prelandedDomains } = await getBrowserContext();
-    page = await context.newPage();
-    page.prelandedDomains = prelandedDomains;
-
-    // Block heavy media types, styles, and trackers/ads to speed up loading
-    await page.route('**/*', (route) => {
-      const req = route.request();
-      const type = req.resourceType();
-      const reqUrl = req.url().toLowerCase();
-
-      // List of tracking, analytics, and advertising domains to block
-      const isTrackerOrAd = 
-        reqUrl.includes('google-analytics') || 
-        reqUrl.includes('doubleclick') || 
-        reqUrl.includes('facebook.net') || 
-        reqUrl.includes('googleadservices') || 
-        reqUrl.includes('hotjar') || 
-        reqUrl.includes('mixpanel') || 
-        reqUrl.includes('segment.com') ||
-        reqUrl.includes('adsystem') ||
-        reqUrl.includes('analytics');
-
-      if (['image', 'stylesheet', 'font', 'media'].includes(type) || isTrackerOrAd) {
-        route.abort();
-      } else {
-        route.continue();
-      }
-    });
-
-    // Call the matching scraper
-    const product = await scrape(page, url);
-
-    console.log('Successfully scraped product:', product.title);
-
-    // Final safety validation: Ensure we have a valid, non-zero price
-    if (!product.price || product.price === '0' || parseFloat(product.price) === 0) {
-      throw new Error('Product price not found. The item might be out of stock, currently unavailable, or this marketplace is not fully supported yet.');
-    }
-
-    // Save to cache
-    SCRAPE_CACHE.set(url, {
-      data: product,
-      timestamp: Date.now()
-    });
-
-    // Return structured product details
+    const product = await scraperService.scrape(url);
     return res.json(product);
-
   } catch (error) {
-    console.error('Error during scraping operation:', error.message);
-    // If it's a browser connection error or crash, close/null browser & context to force recreation
-    if (error.message.includes('browser has been closed') || error.message.includes('Target closed')) {
-      if (browser) {
-        browser.close().catch(() => {});
-        browser = null;
-      }
-      sharedContext = null;
-    }
     return res.status(500).json({
       error: error.message || 'Failed to fetch product details. Please check the URL and try again.'
     });
-  } finally {
-    if (page) {
-      console.log('Closing page...');
-      await page.close().catch(err => console.error('Error closing page:', err.message));
-    }
   }
 });
 
@@ -258,17 +109,14 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   
   // Pre-warm Playwright browser instance at startup to avoid cold start delays
-  getBrowserContext().catch(err => {
+  scraperService.getBrowser().catch(err => {
     console.warn('Playwright browser pre-warming failed:', err.message);
   });
 });
 
 // Clean up browser instance on exit
 const cleanExit = async () => {
-  if (browser) {
-    console.log('Closing browser on server exit...');
-    await browser.close().catch(() => {});
-  }
+  await scraperService.shutdown();
   process.exit(0);
 };
 

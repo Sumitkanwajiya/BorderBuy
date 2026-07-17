@@ -404,7 +404,7 @@ export const App: React.FC = () => {
 
             {/* Column 2: Platform Links */}
             <div className="flex flex-col items-center sm:items-start gap-2.5">
-              <h5 className="text-[11px] font-extrabold tracking-wider uppercase text-slate-750">Platform</h5>
+              <h5 className="text-xs font-extrabold text-slate-800">Platform</h5>
               <div className="flex flex-col items-center sm:items-start gap-2 text-xs font-bold text-slate-500">
                 <span onClick={() => setActiveModal('guide')} className="hover:text-indigo-650 cursor-pointer transition-colors duration-150">Platform Guide</span>
                 <span onClick={() => setActiveModal('pricing')} className="hover:text-indigo-650 cursor-pointer transition-colors duration-150">Pricing Calculator</span>
@@ -414,7 +414,7 @@ export const App: React.FC = () => {
 
             {/* Column 3: Legal & Trust Links */}
             <div className="flex flex-col items-center sm:items-start gap-2.5">
-              <h5 className="text-[11px] font-extrabold tracking-wider uppercase text-slate-750">Guides & Legal</h5>
+              <h5 className="text-xs font-extrabold text-slate-800">Guides & Legal</h5>
               <div className="flex flex-col items-center sm:items-start gap-2 text-xs font-bold text-slate-500">
                 <span onClick={() => setActiveModal('customs')} className="hover:text-indigo-650 cursor-pointer transition-colors duration-150">Customs Guide</span>
                 <span onClick={() => setActiveModal('terms')} className="hover:text-indigo-650 cursor-pointer transition-colors duration-150">Terms of Service</span>
@@ -424,7 +424,7 @@ export const App: React.FC = () => {
 
             {/* Column 4: Support Call-to-action */}
             <div className="flex flex-col items-center sm:items-start gap-3">
-              <h5 className="text-[11px] font-extrabold tracking-wider uppercase text-slate-750">Need Assistance?</h5>
+              <h5 className="text-xs font-extrabold text-slate-800">Need Assistance?</h5>
               <p className="text-xs text-slate-400 text-center sm:text-left leading-normal font-medium">
                 Our support agents are available to calculate prices or help with delivery details.
               </p>
