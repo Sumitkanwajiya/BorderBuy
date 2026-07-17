@@ -1,0 +1,19 @@
+{
+  "name": "borderbuy",
+  "version": "1.0.0",
+  "description": "BorderBuy - Indian Shopping to Nepal Delivery Service (Frontend Only)",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "start:backend": "npm run start --prefix backend",
+    "start": "node backend/server.js",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
