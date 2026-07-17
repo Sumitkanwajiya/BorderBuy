@@ -11,12 +11,12 @@ interface HeroProps {
 }
 
 const SUPPORTED_PLATFORMS = [
-  { name: 'Amazon', domain: 'amazon', logo: '📦', glowClass: 'hover:shadow-amber-100 hover:border-amber-400 hover:text-amber-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-1' },
-  { name: 'Flipkart', domain: 'flipkart', logo: '🛒', glowClass: 'hover:shadow-blue-100 hover:border-blue-400 hover:text-blue-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-2' },
-  { name: 'Myntra', domain: 'myntra', logo: '👗', glowClass: 'hover:shadow-rose-100 hover:border-rose-400 hover:text-rose-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-3' },
-  { name: 'Meesho', domain: 'meesho', logo: '🛍️', glowClass: 'hover:shadow-pink-100 hover:border-pink-400 hover:text-pink-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-4' },
-  { name: 'Ajio', domain: 'ajio', logo: '👟', glowClass: 'hover:shadow-indigo-100 hover:border-indigo-400 hover:text-indigo-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-5' },
-  { name: 'Nykaa', domain: 'nykaa', logo: '💄', glowClass: 'hover:shadow-fuchsia-100 hover:border-fuchsia-400 hover:text-fuchsia-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-6' }
+  { name: 'Amazon', domain: 'amazon', logo: '📦', glowClass: 'hover:shadow-amber-100 hover:border-amber-400 hover:text-amber-700 hover:scale-105 hover:-translate-y-1' },
+  { name: 'Flipkart', domain: 'flipkart', logo: '🛒', glowClass: 'hover:shadow-blue-100 hover:border-blue-400 hover:text-blue-700 hover:scale-105 hover:-translate-y-1' },
+  { name: 'Myntra', domain: 'myntra', logo: '👗', glowClass: 'hover:shadow-rose-100 hover:border-rose-400 hover:text-rose-700 hover:scale-105 hover:-translate-y-1' },
+  { name: 'Meesho', domain: 'meesho', logo: '🛍️', glowClass: 'hover:shadow-pink-100 hover:border-pink-400 hover:text-pink-700 hover:scale-105 hover:-translate-y-1' },
+  { name: 'Ajio', domain: 'ajio', logo: '👟', glowClass: 'hover:shadow-indigo-100 hover:border-indigo-400 hover:text-indigo-700 hover:scale-105 hover:-translate-y-1' },
+  { name: 'Nykaa', domain: 'nykaa', logo: '💄', glowClass: 'hover:shadow-fuchsia-100 hover:border-fuchsia-400 hover:text-fuchsia-700 hover:scale-105 hover:-translate-y-1' }
 ];
 
 export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, selectedCity, onCityChange, adminPhone }) => {
@@ -108,50 +108,21 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
     onGetPrice(url);
   };
 
-  const renderAnimatedText = (text: string, startDelay: number) => {
-    const words = text.split(' ');
-    let globalIndex = 0;
-
-    return words.map((word, wordIdx) => {
-      const chars = word.split('');
-      return (
-        <span key={wordIdx} className="inline-block whitespace-nowrap">
-          {chars.map((char) => {
-            const charIndex = globalIndex++;
-            return (
-              <span
-                key={charIndex}
-                className="animate-char text-3d"
-                style={{
-                  animationDelay: `${startDelay + charIndex * 0.06}s`,
-                }}
-              >
-                {char}
-              </span>
-            );
-          })}
-          {/* Space between words */}
-          {wordIdx < words.length - 1 && <span className="inline-block">&nbsp;</span>}
-        </span>
-      );
-    });
-  };
-
   return (
     <div className="flex flex-col items-center justify-center text-center px-4 py-12 md:py-24 max-w-4xl mx-auto">
       {/* Premium Badge */}
-      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-6 animate-fade-in shadow-xs">
-        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
+      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-6 shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
         Shopping across borders, simplified
       </div>
 
       {/* Main Headline */}
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.3] mb-8 select-none">
         <span className="block mb-2 text-slate-900">
-          {renderAnimatedText("Buy from India.", 0)}
+          Buy from India.
         </span>
         <span className="block text-indigo-650">
-          {renderAnimatedText("Delivered to Nepal.", 0.8)}
+          Delivered to Nepal.
         </span>
       </h1>
 
@@ -243,7 +214,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       </form>
 
       {/* Customer Satisfaction & Live Support Badging */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs text-slate-500 font-semibold mb-10 select-none animate-fade-in">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs text-slate-500 font-semibold mb-10 select-none">
         <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full shadow-xs">
           <span className="text-amber-500 text-sm">⭐⭐⭐⭐⭐</span>
           <span>4.9/5 Rating</span>
@@ -257,7 +228,6 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
           className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-100 px-3 py-1.5 rounded-full shadow-xs text-emerald-700 hover:text-emerald-800 transition-colors duration-200 cursor-pointer"
         >
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           <span>Live Customer Support (WhatsApp)</span>
@@ -276,7 +246,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
               onMouseMove={(e) => handleMouseMove(e, platform.name)}
               onMouseLeave={() => handleMouseLeave(platform.name)}
               style={tiltStyle[platform.name]}
-              className={`flex items-center justify-center md:justify-start gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-100 bg-white/50 text-slate-500 hover:bg-white shadow-xs transition-all duration-300 hover:shadow-md cursor-default hover:[animation-play-state:paused] ${platform.floatClass} ${platform.glowClass}`}
+              className={`flex items-center justify-center md:justify-start gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-100 bg-white/50 text-slate-500 hover:bg-white shadow-xs transition-all duration-300 hover:shadow-md cursor-default ${platform.glowClass}`}
             >
               <span className="text-base group-hover:scale-110 transition-transform duration-200">{platform.logo}</span>
               <span className="font-semibold text-sm">{platform.name}</span>
@@ -286,7 +256,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       </div>
 
       {/* Customer Testimonials Section */}
-      <div className="w-full mt-16 pt-12 border-t border-slate-100/80 animate-fade-in">
+      <div className="w-full mt-16 pt-12 border-t border-slate-100/80">
         <p className="text-xs font-bold tracking-wider text-indigo-650 uppercase mb-3">
           Customer Testimonials
         </p>
@@ -294,96 +264,69 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
           Loved by 1,200+ Shoppers in Nepal
         </h3>
         
-        {/* Infinite Scrolling Testimonials Marquee */}
-        <div className="marquee-container py-4">
-          <div className="animate-scroll-testimonials">
-            {[...Array(2)].map((_, loopIdx) => (
-              <React.Fragment key={loopIdx}>
-                {/* Card 1: Kathmandu */}
-                <div className="w-[280px] sm:w-80 bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
-                  <div>
-                    <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
-                      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
-                    </div>
-                    <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium">
-                      "Ordered a OnePlus phone from Amazon India. The price estimate was spot-on, and it arrived in Kathmandu in 5 days. Zero customs hassle!"
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-[10px]">
-                      AS
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">Aayush Shrestha</h4>
-                      <p className="text-[9px] text-slate-450 font-semibold">Kathmandu • Verified Buyer</p>
-                    </div>
-                  </div>
-                </div>
+        {/* Static Testimonials Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-w-5xl mx-auto px-4 mt-6">
+          {/* Card 1: Kathmandu */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
+            <div>
+              <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
+                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+              </div>
+              <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium font-sans">
+                "Ordered a OnePlus phone from Amazon India. The price estimate was spot-on, and it arrived in Kathmandu in 5 days. Zero customs hassle!"
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-[10px]">
+                AS
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">Aayush Shrestha</h4>
+                <p className="text-[9px] text-slate-450 font-semibold">Kathmandu • Verified Buyer</p>
+              </div>
+            </div>
+          </div>
 
-                {/* Card 2: Nepalgunj */}
-                <div className="w-[280px] sm:w-80 bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
-                  <div>
-                    <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
-                      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
-                    </div>
-                    <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium">
-                      "BorderBuy delivered my gaming gear from Amazon to Nepalgunj safely and quickly. Very satisfied with their service!"
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[10px]">
-                      BC
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">Bibek Chaudhary</h4>
-                      <p className="text-[9px] text-slate-450 font-semibold">Nepalgunj • Verified Buyer</p>
-                    </div>
-                  </div>
-                </div>
+          {/* Card 2: Nepalgunj */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
+            <div>
+              <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
+                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+              </div>
+              <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium font-sans">
+                "BorderBuy delivered my gaming gear from Amazon to Nepalgunj safely and quickly. Very satisfied with their service!"
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[10px]">
+                BC
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">Bibek Chaudhary</h4>
+                <p className="text-[9px] text-slate-450 font-semibold">Nepalgunj • Verified Buyer</p>
+              </div>
+            </div>
+          </div>
 
-                {/* Card 3: Lalitpur */}
-                <div className="w-[280px] sm:w-80 bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
-                  <div>
-                    <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
-                      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
-                    </div>
-                    <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium">
-                      "Myntra clothes are so much cheaper but delivery to Nepal was always a pain. BorderBuy makes it simple and delivery was fast!"
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-[10px]">
-                      PA
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">Pooja Adhikari</h4>
-                      <p className="text-[9px] text-slate-450 font-semibold">Lalitpur • Verified Buyer</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 4: Pokhara */}
-                <div className="w-[280px] sm:w-80 bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none">
-                  <div>
-                    <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
-                      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
-                    </div>
-                    <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium">
-                      "Used BorderBuy to order sound equipment from Flipkart. Extremely prompt response on WhatsApp support. Highly recommended!"
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-[10px]">
-                      RT
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">Rupesh Thapa</h4>
-                      <p className="text-[9px] text-slate-450 font-semibold">Pokhara • Verified Buyer</p>
-                    </div>
-                  </div>
-                </div>
-              </React.Fragment>
-            ))}
+          {/* Card 3: Lalitpur */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-100 hover:shadow-lg transition-all duration-300 flex flex-col justify-between shadow-xs select-none sm:col-span-2 md:col-span-1">
+            <div>
+              <div className="flex items-center gap-1 mb-2 text-amber-500 text-xs">
+                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+              </div>
+              <p className="text-slate-650 text-xs italic leading-relaxed mb-4 font-medium font-sans">
+                "Myntra clothes are so much cheaper but delivery to Nepal was always a pain. BorderBuy makes it simple and delivery was fast!"
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-[10px]">
+                PA
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">Pooja Adhikari</h4>
+                <p className="text-[9px] text-slate-450 font-semibold">Lalitpur • Verified Buyer</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
