@@ -183,10 +183,10 @@ app.post('/api/fetch-product', async (req, res) => {
     page = await context.newPage();
     page.prelandedDomains = prelandedDomains;
 
-    // Block heavy media types to speed up loading
+    // Block heavy media types & styles to speed up loading
     await page.route('**/*', (route) => {
       const type = route.request().resourceType();
-      if (['image', 'font', 'media'].includes(type)) {
+      if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
         route.abort();
       } else {
         route.continue();
