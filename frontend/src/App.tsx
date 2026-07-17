@@ -8,7 +8,7 @@ import { InfoModals } from './components/InfoModals';
 
 // Pricing configuration
 const EXCHANGE_RATE = 1.6; // 1 INR = 1.6 NPR
-const ADMIN_WHATSAPP_NUMBER = '+9779700998792'; // Admin WhatsApp number for order redirection
+const ADMIN_WHATSAPP_NUMBER = import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER || '+9779700998792'; // Admin WhatsApp number for order redirection
 
 interface ProductDetails {
   productUrl: string;
@@ -298,6 +298,7 @@ export const App: React.FC = () => {
               apiError={apiError} 
               selectedCity={selectedCity}
               onCityChange={handleCityChange}
+              adminPhone={ADMIN_WHATSAPP_NUMBER}
             />
           )}
 

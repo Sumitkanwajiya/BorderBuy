@@ -7,6 +7,7 @@ interface HeroProps {
   apiError?: string;
   selectedCity: string;
   onCityChange: (city: string) => void;
+  adminPhone: string;
 }
 
 const SUPPORTED_PLATFORMS = [
@@ -18,7 +19,7 @@ const SUPPORTED_PLATFORMS = [
   { name: 'Nykaa', domain: 'nykaa', logo: '💄', glowClass: 'hover:shadow-fuchsia-100 hover:border-fuchsia-400 hover:text-fuchsia-700 hover:scale-105 hover:-translate-y-1', floatClass: 'animate-float-6' }
 ];
 
-export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, selectedCity, onCityChange }) => {
+export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, selectedCity, onCityChange, adminPhone }) => {
   const [url, setUrl] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -250,7 +251,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
           <span className="text-indigo-650">1,200+ Satisfied Customers</span>
         </div>
         <a 
-          href="https://wa.me/9779800000000?text=Hi%2C%20I%20need%20assistance%20with%20my%20estimate."
+          href={`https://wa.me/${adminPhone.replace(/\D/g, '')}?text=Hi%2C%20I%20need%20assistance%20with%20my%20estimate.`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-100 px-3 py-1.5 rounded-full shadow-xs text-emerald-700 hover:text-emerald-800 transition-colors duration-200 cursor-pointer"
