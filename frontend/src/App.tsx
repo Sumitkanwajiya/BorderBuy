@@ -9,6 +9,7 @@ import { InfoModals } from './components/InfoModals';
 // Pricing configuration
 const EXCHANGE_RATE = 1.6; // 1 INR = 1.6 NPR
 const ADMIN_WHATSAPP_NUMBER = import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER || '+9779800000000'; // Admin WhatsApp number for order redirection
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 interface ProductDetails {
   productUrl: string;
@@ -81,7 +82,7 @@ export const App: React.FC = () => {
     setApiError('');
     
     try {
-      const response = await fetch('/api/fetch-product', {
+      const response = await fetch(`${API_BASE_URL}/api/fetch-product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
