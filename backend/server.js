@@ -38,7 +38,23 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Programmatic self-healing browser installer at runtime startup
+let isPlaywrightVerified = false;
+async function ensurePlaywrightInstalled() {
+  if (isPlaywrightVerified) return;
+  const { execSync } = require('child_process');
+  try {
+    console.log('Verifying Playwright chromium browser binaries...');
+    execSync('npx playwright install chromium', { stdio: 'inherit' });
+    isPlaywrightVerified = true;
+    console.log('Playwright chromium binaries verified successfully.');
+  } catch (err) {
+    console.error('Playwright auto-installation failed:', err.message);
+  }
+}
+
 async function getBrowserContext() {
+  await ensurePlaywrightInstalled();
   if (!browser || !browser.isConnected()) {
     console.log('Launching persistent Playwright browser...');
     const launchArgs = [
