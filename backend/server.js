@@ -63,19 +63,10 @@ async function getBrowserContext() {
       '--disable-dev-shm-usage',
       '--disable-web-security'
     ];
-    try {
-      browser = await chromium.launch({
-        headless: true,
-        channel: 'chrome',
-        args: launchArgs
-      });
-    } catch (err) {
-      console.warn('Google Chrome channel not found, falling back to default Chromium...');
-      browser = await chromium.launch({
-        headless: true,
-        args: launchArgs
-      });
-    }
+    browser = await chromium.launch({
+      headless: true,
+      args: launchArgs
+    });
     sharedContext = null;
   }
 
