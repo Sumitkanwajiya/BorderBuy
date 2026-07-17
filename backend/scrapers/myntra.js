@@ -121,7 +121,12 @@ const scrapeMyntra = async (page, url) => {
   return {
     title: product.title,
     price: cleanedPrice,
-    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'
+    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
+    timings: {
+      navigation: navDuration,
+      wait: waitDuration,
+      evaluate: evalDuration
+    }
   };
 };
 

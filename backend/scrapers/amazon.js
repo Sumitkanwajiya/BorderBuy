@@ -185,7 +185,9 @@ async function scrapeAmazon(page, url) {
   };
 
   // Run initial DOM evaluation
+  const startEval = Date.now();
   let product = await runUnifiedDOMQuery(page);
+  let evalDuration = Date.now() - startEval;
 
   // Throw if blocked by CAPTCHA challenge
   if (product.isCaptcha) {
@@ -196,7 +198,9 @@ async function scrapeAmazon(page, url) {
   if (!product.price) {
     await setAmazonLocation(page, url);
     // Query DOM once more after geolocation reload
+    const startEval2 = Date.now();
     product = await runUnifiedDOMQuery(page);
+    evalDuration += (Date.now() - startEval2);
   }
 
   // Enforce title presence
@@ -233,7 +237,12 @@ async function scrapeAmazon(page, url) {
   return {
     title: product.title,
     price: cleanedPrice,
-    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'
+    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
+    timings: {
+      navigation: navDuration,
+      wait: waitDuration,
+      evaluate: evalDuration
+    }
   };
 }
 

@@ -123,8 +123,11 @@ class ScraperService {
     let page = null;
     
     try {
+      const startAcquire = Date.now();
       const browserInstance = await this.getBrowser();
+      const browserAcquireTime = Date.now() - startAcquire;
       
+      const startContext = Date.now();
       // Create request-isolated context
       context = await browserInstance.newContext({
         viewport: { width: 1280, height: 800 },
@@ -137,10 +140,14 @@ class ScraperService {
           get: () => undefined,
         });
       });
+      const contextCreateTime = Date.now() - startContext;
 
+      const startPage = Date.now();
       page = await context.newPage();
       page.prelandedDomains = new Set(); // For scraper sessions pre-lands
+      const pageCreateTime = Date.now() - startPage;
 
+      const startHeaders = Date.now();
       // Resource blocker middleware
       await page.route('**/*', (route) => {
         const req = route.request();
@@ -166,6 +173,7 @@ class ScraperService {
           route.continue();
         }
       });
+      const headersTime = Date.now() - startHeaders;
 
       // Get scraper engine
       const scraper = getScraper(url);
@@ -173,19 +181,48 @@ class ScraperService {
       console.log(`[ScraperService] Scraping ${url}...`);
       const product = await scraper(page, url);
       
-      const duration = Date.now() - startTime;
-      console.log(`[ScraperService] Successfully scraped product in ${duration}ms: "${product.title}"`);
-
       // Price presence enforcement safety check
       if (!product.price || product.price === '0' || parseFloat(product.price) === 0) {
         throw new Error('Product price not found. The item might be out of stock or currently unavailable.');
       }
+
+      const timings = product.timings || {};
+      delete product.timings; // Clean returned timings before caching and returning to caller
 
       // Save to cache
       this.cache.set(url, {
         data: product,
         timestamp: Date.now()
       });
+
+      const totalTime = Date.now() - startTime;
+
+      // Measure cleanup
+      const startCleanup = Date.now();
+      if (page) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
+      page = null;
+      context = null;
+      const cleanupTime = Date.now() - startCleanup;
+
+      // Print structured performance metrics logs
+      console.info(`
+====================================================
+Performance Report
+====================================================
+Browser Acquire: ${browserAcquireTime} ms
+Context Create:  ${contextCreateTime} ms
+Page Create:     ${pageCreateTime} ms
+Headers:         ${headersTime} ms
+Navigation:      ${timings.navigation || 0} ms
+DOM Ready:       ${timings.navigation || 0} ms
+Selector Wait:   ${timings.wait || 0} ms
+Evaluate:        ${timings.evaluate || 0} ms
+Cleanup:         ${cleanupTime} ms
+
+TOTAL:           ${totalTime} ms
+====================================================
+      `);
 
       return product;
     } catch (err) {
@@ -201,13 +238,15 @@ class ScraperService {
       }
       throw err;
     } finally {
-      // Close page and context to avoid memory leaks
+      // Close page and context to avoid memory leaks if still open after an error
+      const startCleanup = Date.now();
       if (page) {
         await page.close().catch(() => {});
       }
       if (context) {
         await context.close().catch(() => {});
       }
+      const cleanupTime = Date.now() - startCleanup;
       
       this.activePagesCount--;
       
