@@ -1,5 +1,13 @@
+/**
+ * Scrapes product details from Myntra (myntra.com)
+ * Optimized for minimal browser evaluations and scoped DOM lookups.
+ * @param {import('playwright').Page} page
+ * @param {string} url
+ * @returns {Promise<{title: string, price: string, image: string}>}
+ */
 const scrapeMyntra = async (page, url) => {
-  console.log('Scraping Myntra URL:', url);
+  const startTime = Date.now();
+  console.log(`[MyntraScraper] Starting scrape for URL: ${url}`);
 
   // Set headers to bypass bot block checks
   await page.setExtraHTTPHeaders({
@@ -9,35 +17,36 @@ const scrapeMyntra = async (page, url) => {
   });
 
   // Navigate to product detail page with Referer
+  const startNav = Date.now();
   const response = await page.goto(url, { 
     waitUntil: 'domcontentloaded', 
-    timeout: 45000,
+    timeout: 25000,
     referer: 'https://www.myntra.com/'
   });
+  const navDuration = Date.now() - startNav;
+  console.log(`[MyntraScraper] Page navigation completed in ${navDuration}ms.`);
   
   if (!response || (response.status() !== 200 && response.status() !== 304)) {
-    throw new Error(`Failed to load Myntra page. Status code: ${response ? response.status() : 'unknown'}. Myntra anti-bot protection might be blocking this request.`);
+    throw new Error(`Failed to load Myntra page. Status code: ${response ? response.status() : 'unknown'}.`);
   }
 
   // Wait for product details elements to load
-  await page.waitForSelector('.pdp-title, .pdp-name, .pdp-price', { timeout: 3500 }).catch(() => {});
+  const startWait = Date.now();
+  await page.waitForSelector('.pdp-title, .pdp-name, .pdp-price', { timeout: 3000 }).catch(() => {});
+  const waitDuration = Date.now() - startWait;
+  console.log(`[MyntraScraper] Wait selector completed in ${waitDuration}ms.`);
 
-  // Attempt to extract title
-  const title = await page.evaluate(() => {
+  const startEval = Date.now();
+  const product = await page.evaluate(() => {
+    // 1. Extract Title
     const brandEl = document.querySelector('.pdp-title');
     const nameEl = document.querySelector('.pdp-name');
     const brand = brandEl ? brandEl.textContent.trim() : '';
     const name = nameEl ? nameEl.textContent.trim() : '';
-    
-    return brand && name ? `${brand} - ${name}` : brand || name || '';
-  });
+    const titleStr = brand && name ? `${brand} - ${name}` : brand || name || '';
 
-  if (!title) {
-    throw new Error('Product title not found on Myntra. The page format may have changed or the link is invalid.');
-  }
-
-  // Attempt to extract price
-  const price = await page.evaluate(() => {
+    // 2. Extract Price
+    let priceStr = '';
     const priceSelectors = [
       '.pdp-price', 
       '.pdp-discount', 
@@ -49,21 +58,51 @@ const scrapeMyntra = async (page, url) => {
       const el = document.querySelector(selector);
       if (el) {
         const text = el.textContent.trim();
-        if (text) return text;
+        if (text) {
+          priceStr = text;
+          break;
+        }
       }
     }
 
-    // Fallback: search for elements with Rupee symbol
-    const rupeeEls = Array.from(document.querySelectorAll('*'))
-      .filter(el => el.children.length === 0 && (el.textContent.includes('₹') || el.textContent.includes('Rs.')) && el.textContent.length < 15)
-      .map(el => el.textContent.trim());
-    return rupeeEls.length > 0 ? rupeeEls[0] : '';
+    // Scoped Rupee symbol search (excludes strike-through classes and expensive wildcard lookups)
+    if (!priceStr) {
+      const rupeeTags = document.querySelectorAll('.pdp-selling-price, .pdp-price, span, div');
+      for (const el of rupeeTags) {
+        if (el.children.length === 0 && (el.textContent.includes('₹') || el.textContent.includes('Rs.')) && el.textContent.length < 15) {
+          priceStr = el.textContent.trim();
+          break;
+        }
+      }
+    }
+
+    // 3. Extract Image URL
+    let imgUrl = '';
+    const img = document.querySelector('img[src*="myntassets.com"]') || 
+                document.querySelector('.image-grid-image') || 
+                document.querySelector('.pdp-image-container img');
+    if (img && img.src && img.src.startsWith('http')) {
+      imgUrl = img.src;
+    }
+
+    return {
+      title: titleStr,
+      price: priceStr,
+      image: imgUrl
+    };
   });
+
+  const evalDuration = Date.now() - startEval;
+  console.log(`[MyntraScraper] DOM evaluation query completed in ${evalDuration}ms.`);
+
+  if (!product.title) {
+    throw new Error('Product title not found on Myntra. The page format may have changed or the link is invalid.');
+  }
 
   // Clean price: Extract numeric part
   let cleanedPrice = '';
-  if (price) {
-    cleanedPrice = price.replace(/[^\d.]/g, '');
+  if (product.price) {
+    cleanedPrice = product.price.replace(/[^\d.]/g, '');
     if (cleanedPrice.includes('.')) {
       const parts = cleanedPrice.split('.');
       if (parts[1] === '00' || parts[1] === '') {
@@ -77,18 +116,12 @@ const scrapeMyntra = async (page, url) => {
     throw new Error('Product price not found on Myntra. The item might be out of stock or currently unavailable.');
   }
 
-  // Attempt to extract image URL
-  const image = await page.evaluate(() => {
-    const img = document.querySelector('img[src*="myntassets.com"]') || 
-                document.querySelector('.image-grid-image') || 
-                document.querySelector('.pdp-image-container img');
-    return img && img.src && img.src.startsWith('http') ? img.src : '';
-  });
+  console.log(`[MyntraScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
-    title,
+    title: product.title,
     price: cleanedPrice,
-    image: image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500' // Fallback
+    image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'
   };
 };
 

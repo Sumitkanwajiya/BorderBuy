@@ -1,17 +1,28 @@
 /**
  * Fallback generic scraper that extracts product details using OpenGraph tags,
  * Twitter cards, schema microdata, or standard HTML elements.
+ * Optimized to run all DOM evaluations in a single page.evaluate call.
  * @param {import('playwright').Page} page
  * @param {string} url
  * @returns {Promise<{title: string, price: string, image: string}>}
  */
 async function scrapeGeneric(page, url) {
-  console.log(`Navigating to generic URL: ${url}`);
+  const startTime = Date.now();
+  console.log(`[GenericScraper] Starting scrape for URL: ${url}`);
   
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  // Wait briefly for page to populate
+  // Navigate directly
+  const startNav = Date.now();
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+  const navDuration = Date.now() - startNav;
+  console.log(`[GenericScraper] Page navigation completed in ${navDuration}ms.`);
+  
+  // Wait briefly for page details
+  const startWait = Date.now();
   await page.waitForSelector('meta[property="og:title"], h1, body', { timeout: 2000 }).catch(() => {});
+  const waitDuration = Date.now() - startWait;
+  console.log(`[GenericScraper] Wait selector completed in ${waitDuration}ms.`);
 
+  const startEval = Date.now();
   const product = await page.evaluate(() => {
     // 1. Title extraction
     let title = '';
@@ -56,7 +67,7 @@ async function scrapeGeneric(page, url) {
     const priceSelectors = [
       'meta[property="og:price:amount"]',
       'meta[property="product:price:amount"]',
-      'meta[name="twitter:label1"]', // Sometimes price is stored here
+      'meta[name="twitter:label1"]',
       'meta[itemprop="price"]'
     ];
     for (const selector of priceSelectors) {
@@ -88,6 +99,9 @@ async function scrapeGeneric(page, url) {
     return { title, price, image };
   });
 
+  const evalDuration = Date.now() - startEval;
+  console.log(`[GenericScraper] DOM evaluation query completed in ${evalDuration}ms.`);
+
   // Clean the price string to numeric-only digits and decimals
   let cleanedPrice = '0';
   if (product.price) {
@@ -102,6 +116,8 @@ async function scrapeGeneric(page, url) {
       }
     }
   }
+
+  console.log(`[GenericScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
     title: product.title || 'Unknown Product',
