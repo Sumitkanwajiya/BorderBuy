@@ -1,10 +1,11 @@
-const { chromium } = require('playwright');
-const { getScraper } = require('../scrapers');
-const { execSync } = require('child_process');
 const path = require('path');
 
 // Set browsers installation directory relative to backend to survive Render rebuild container swaps
 process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(__dirname, '../pw-browsers');
+
+const { chromium } = require('playwright');
+const { getScraper } = require('../scrapers');
+const { execSync } = require('child_process');
 
 class ScraperService {
   constructor() {

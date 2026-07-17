@@ -1,4 +1,6 @@
 require('dotenv').config();
+const path = require('path');
+process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(__dirname, 'pw-browsers');
 
 // Suppress verbose log details in terminal (enable by setting DEBUG=true in env)
 if (process.env.DEBUG !== 'true') {
@@ -91,7 +93,6 @@ app.post('/api/fetch-product', async (req, res) => {
 });
 
 // Serve static assets in production mode if the frontend build directory exists
-const path = require('path');
 const fs = require('fs');
 const distPath = path.join(__dirname, '../frontend/dist');
 
