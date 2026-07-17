@@ -174,10 +174,25 @@ app.post('/api/fetch-product', async (req, res) => {
     page = await context.newPage();
     page.prelandedDomains = prelandedDomains;
 
-    // Block heavy media types & styles to speed up loading
+    // Block heavy media types, styles, and trackers/ads to speed up loading
     await page.route('**/*', (route) => {
-      const type = route.request().resourceType();
-      if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+      const req = route.request();
+      const type = req.resourceType();
+      const reqUrl = req.url().toLowerCase();
+
+      // List of tracking, analytics, and advertising domains to block
+      const isTrackerOrAd = 
+        reqUrl.includes('google-analytics') || 
+        reqUrl.includes('doubleclick') || 
+        reqUrl.includes('facebook.net') || 
+        reqUrl.includes('googleadservices') || 
+        reqUrl.includes('hotjar') || 
+        reqUrl.includes('mixpanel') || 
+        reqUrl.includes('segment.com') ||
+        reqUrl.includes('adsystem') ||
+        reqUrl.includes('analytics');
+
+      if (['image', 'stylesheet', 'font', 'media'].includes(type) || isTrackerOrAd) {
         route.abort();
       } else {
         route.continue();
@@ -241,6 +256,11 @@ if (fs.existsSync(distPath)) {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Pre-warm Playwright browser instance at startup to avoid cold start delays
+  getBrowserContext().catch(err => {
+    console.warn('Playwright browser pre-warming failed:', err.message);
+  });
 });
 
 // Clean up browser instance on exit
