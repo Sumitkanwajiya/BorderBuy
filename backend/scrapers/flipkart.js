@@ -48,14 +48,46 @@ const scrapeFlipkart = async (page, url) => {
                     document.querySelector('.Bua1g3');
     const titleStr = titleEl ? titleEl.textContent.trim() : '';
 
-    // 3. Extract Price (prioritize metadata and structured schema markup)
+    // 3. Extract Price (prioritize active DOM selectors for dynamic variant prices)
     let priceStr = '';
-    const itempropPrice = document.querySelector('meta[itemprop="price"]');
-    if (itempropPrice && itempropPrice.getAttribute('content')) {
-      const val = itempropPrice.getAttribute('content').trim();
-      if (val && val !== '0') priceStr = val;
+
+    // 3.1 Try target DOM selectors (specifically filtering out strike-through MRP elements)
+    const priceSelectors = [
+      '.Nx9zhl', 
+      '._30jeq3', 
+      '._16Jk6d', 
+      '.dyC4S1', 
+      '.UOC0FD',
+      'div[class*="price"]'
+    ];
+
+    for (const selector of priceSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        // Avoid strike-through MRP nodes
+        const isStrike = el.classList.contains('_3I9_R3') || 
+                         el.classList.contains('y3Z5D1') || 
+                         window.getComputedStyle(el).textDecoration.includes('line-through');
+        if (!isStrike) {
+          const text = el.textContent.trim();
+          if (text) {
+            priceStr = text;
+            break;
+          }
+        }
+      }
     }
 
+    // 3.2 Try itemprop price tag fallback
+    if (!priceStr) {
+      const itempropPrice = document.querySelector('meta[itemprop="price"]');
+      if (itempropPrice && itempropPrice.getAttribute('content')) {
+        const val = itempropPrice.getAttribute('content').trim();
+        if (val && val !== '0') priceStr = val;
+      }
+    }
+
+    // 3.3 Try OpenGraph price tag fallback
     if (!priceStr) {
       const ogPrice = document.querySelector('meta[property="product:price:amount"]');
       if (ogPrice && ogPrice.getAttribute('content')) {
@@ -64,7 +96,7 @@ const scrapeFlipkart = async (page, url) => {
       }
     }
 
-    // JSON-LD Product Offer check (Optimized loop with fast return)
+    // 3.4 Try JSON-LD Product schema fallback (Optimized loop with fast return)
     if (!priceStr) {
       const jsonLdTags = document.querySelectorAll('script[type="application/ld+json"]');
       for (const tag of jsonLdTags) {
@@ -87,35 +119,7 @@ const scrapeFlipkart = async (page, url) => {
       }
     }
 
-    // Scoped DOM selector checks
-    if (!priceStr) {
-      const priceSelectors = [
-        '.Nx9zhl', 
-        '._30jeq3', 
-        '._16Jk6d', 
-        '.dyC4S1', 
-        '.UOC0FD',
-        'div[class*="price"]'
-      ];
-
-      for (const selector of priceSelectors) {
-        const el = document.querySelector(selector);
-        if (el) {
-          const isStrike = el.classList.contains('_3I9_R3') || 
-                           el.classList.contains('y3Z5D1') || 
-                           window.getComputedStyle(el).textDecoration.includes('line-through');
-          if (!isStrike) {
-            const text = el.textContent.trim();
-            if (text) {
-              priceStr = text;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    // Scoped Rupee symbol search (Avoids heavy wildcard querySelectorAll('*') scan)
+    // 3.5 Fallback: Scoped Rupee symbol search (Avoids heavy wildcard querySelectorAll('*') scan)
     if (!priceStr) {
       const targetContainers = document.querySelectorAll('.a-price, .price-box, span, div');
       for (const el of targetContainers) {

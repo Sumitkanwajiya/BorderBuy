@@ -8,6 +8,8 @@ const scrapeGeneric = require('./generic');
 const scraperRegistry = [
   { pattern: 'amazon.in', scraper: scrapeAmazon },
   { pattern: 'amazon.com', scraper: scrapeAmazon },
+  { pattern: 'amzn.in', scraper: scrapeAmazon },
+  { pattern: 'amzn.to', scraper: scrapeAmazon },
   { pattern: 'flipkart.com', scraper: scrapeFlipkart },
   { pattern: 'myntra.com', scraper: scrapeMyntra },
   { pattern: 'meesho.com', scraper: scrapeMeesho },

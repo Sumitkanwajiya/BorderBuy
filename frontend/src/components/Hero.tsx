@@ -33,7 +33,12 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
 
     try {
       const lowerUrl = url.toLowerCase();
-      const platform = SUPPORTED_PLATFORMS.find(p => lowerUrl.includes(p.domain));
+      const platform = SUPPORTED_PLATFORMS.find(p => {
+        if (p.domain === 'amazon') {
+          return lowerUrl.includes('amazon') || lowerUrl.includes('amzn');
+        }
+        return lowerUrl.includes(p.domain);
+      });
       if (platform) {
         setDetectedPlatform(platform.name);
       } else if (url.startsWith('http://') || url.startsWith('https://')) {

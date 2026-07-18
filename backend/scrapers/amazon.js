@@ -90,18 +90,64 @@ async function scrapeAmazon(page, url) {
       const titleEl = document.querySelector('#productTitle');
       const titleStr = titleEl ? titleEl.textContent.trim() : '';
 
-      // 3. Extract Price (excluding list prices/strike-through)
+      // 3. Extract Price (prioritize active DOM selectors inside product containers for dynamic variant prices)
       let priceStr = '';
 
-      // 3.1 Try itemprop price tag first (representing clean transactional price)
-      const itempropPrice = document.querySelector('meta[itemprop="price"]') || 
-                            document.querySelector('[itemprop="price"]');
-      if (itempropPrice) {
-        const val = (itempropPrice.getAttribute('content') || itempropPrice.textContent || '').trim();
-        if (val && val !== '0') priceStr = val;
+      // 3.1 Try target DOM elements within strict container boundaries
+      const mainContainer = document.querySelector('#ppd') || 
+                            document.querySelector('#centerCol') || 
+                            document.querySelector('#rightCol') || 
+                            document.querySelector('#buyBoxAccordion') ||
+                            document.querySelector('#combinedBuyBox_feature_div') ||
+                            document.querySelector('#dp-container') ||
+                            document;
+
+      const priceSelectors = [
+        '#corePriceDisplay_desktop_feature_div .a-price-whole',
+        '#corePrice_feature_div .a-price-whole',
+        '#priceblock_ourprice',
+        '#priceblock_dealprice',
+        '#priceblock_saleprice',
+        '.a-price .a-price-whole',
+        '.a-color-price',
+        'span.a-price .a-offscreen'
+      ];
+
+      for (const selector of priceSelectors) {
+        const elements = Array.from(mainContainer.querySelectorAll(selector));
+        for (const el of elements) {
+          // Refined filter checking HTML classes, data parameters, and computed styles (line-through)
+          const isStrikeThrough = el.closest('.a-text-price') || 
+                                 el.closest('.basisPrice') || 
+                                 el.closest('del') || 
+                                 el.closest('strike') ||
+                                 el.classList.contains('a-text-price') ||
+                                 el.getAttribute('data-a-strike') === 'true' ||
+                                 window.getComputedStyle(el).textDecoration.includes('line-through') ||
+                                 (el.parentElement && window.getComputedStyle(el.parentElement).textDecoration.includes('line-through'));
+          
+          if (!isStrikeThrough) {
+            const text = el.textContent.trim();
+            if (text) {
+              priceStr = text;
+              break;
+            }
+          }
+        }
+        if (priceStr) break;
       }
 
-      // 3.2 Try JSON-LD Product schema price (fast loop parsing)
+      // 3.2 Try itemprop price tag fallback
+      if (!priceStr) {
+        const itempropPrice = document.querySelector('meta[itemprop="price"]') || 
+                              document.querySelector('[itemprop="price"]');
+        if (itempropPrice) {
+          const val = (itempropPrice.getAttribute('content') || itempropPrice.textContent || '').trim();
+          if (val && val !== '0') priceStr = val;
+        }
+      }
+
+      // 3.3 Try JSON-LD Product schema price fallback (fast loop parsing)
       if (!priceStr) {
         const jsonLdTags = document.querySelectorAll('script[type="application/ld+json"]');
         for (const tag of jsonLdTags) {
@@ -124,59 +170,13 @@ async function scrapeAmazon(page, url) {
         }
       }
 
-      // 3.3 Try OpenGraph price meta tags
+      // 3.4 Try OpenGraph price meta tags fallback
       if (!priceStr) {
         const ogPrice = document.querySelector('meta[property="product:price:amount"]') || 
                         document.querySelector('meta[property="og:price:amount"]');
         if (ogPrice && ogPrice.getAttribute('content')) {
           const val = ogPrice.getAttribute('content').trim();
           if (val && val !== '0') priceStr = val;
-        }
-      }
-
-      // 3.4 Fallback: Scan target DOM elements within strict container boundaries
-      if (!priceStr) {
-        const mainContainer = document.querySelector('#ppd') || 
-                              document.querySelector('#centerCol') || 
-                              document.querySelector('#rightCol') || 
-                              document.querySelector('#buyBoxAccordion') ||
-                              document.querySelector('#combinedBuyBox_feature_div') ||
-                              document.querySelector('#dp-container') ||
-                              document;
-
-        const priceSelectors = [
-          '#corePriceDisplay_desktop_feature_div .a-price-whole',
-          '#corePrice_feature_div .a-price-whole',
-          '#priceblock_ourprice',
-          '#priceblock_dealprice',
-          '#priceblock_saleprice',
-          '.a-price .a-price-whole',
-          '.a-color-price',
-          'span.a-price .a-offscreen'
-        ];
-
-        for (const selector of priceSelectors) {
-          const elements = Array.from(mainContainer.querySelectorAll(selector));
-          for (const el of elements) {
-            // Refined filter checking HTML classes, data parameters, and computed styles (line-through)
-            const isStrikeThrough = el.closest('.a-text-price') || 
-                                   el.closest('.basisPrice') || 
-                                   el.closest('del') || 
-                                   el.closest('strike') ||
-                                   el.classList.contains('a-text-price') ||
-                                   el.getAttribute('data-a-strike') === 'true' ||
-                                   window.getComputedStyle(el).textDecoration.includes('line-through') ||
-                                   (el.parentElement && window.getComputedStyle(el.parentElement).textDecoration.includes('line-through'));
-            
-            if (!isStrikeThrough) {
-              const text = el.textContent.trim();
-              if (text) {
-                priceStr = text;
-                break;
-              }
-            }
-          }
-          if (priceStr) break;
         }
       }
 
