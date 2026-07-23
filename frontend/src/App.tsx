@@ -11,6 +11,44 @@ const EXCHANGE_RATE = 1.6; // 1 INR = 1.6 NPR
 const ADMIN_WHATSAPP_NUMBER = import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER || '+9779800000000'; // Admin WhatsApp number for order redirection
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
+/**
+ * Calculates service charge percentage and amount, delivery charge, and estimated total NPR
+ */
+export const calculateCharges = (indianPriceINR: number, city: string) => {
+  const isNepalgunj = city.toLowerCase() === 'nepalgunj';
+  let servicePercent = 0.08;
+
+  if (isNepalgunj) {
+    if (indianPriceINR <= 5000) {
+      servicePercent = 0.05;
+    } else if (indianPriceINR <= 10000) {
+      servicePercent = 0.03;
+    } else {
+      servicePercent = 0.02;
+    }
+  } else {
+    if (indianPriceINR <= 5000) {
+      servicePercent = 0.08;
+    } else if (indianPriceINR <= 10000) {
+      servicePercent = 0.05;
+    } else {
+      servicePercent = 0.03;
+    }
+  }
+
+  const deliveryChargeNPR = isNepalgunj ? 150 : 400;
+  const priceNPR = indianPriceINR * EXCHANGE_RATE;
+  const serviceChargeNPR = Math.round(priceNPR * servicePercent);
+  const estimatedPriceNPR = Math.round(priceNPR + serviceChargeNPR + deliveryChargeNPR);
+
+  return {
+    servicePercent,
+    serviceChargeNPR,
+    deliveryChargeNPR,
+    estimatedPriceNPR
+  };
+};
+
 interface ProductDetails {
   productUrl: string;
   productName: string;
@@ -20,6 +58,8 @@ interface ProductDetails {
   serviceChargeNPR: number;
   deliveryChargeNPR: number;
   estimatedPriceNPR: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export const App: React.FC = () => {
@@ -32,17 +72,13 @@ export const App: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState<string>('Nepalgunj');
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'customs' | 'support' | 'guide' | 'pricing' | 'help' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const handleCityChange = (city: string) => {
     setSelectedCity(city);
     if (productDetails) {
-      const priceNPR = productDetails.indianPriceINR * EXCHANGE_RATE;
-      const isNepalgunj = city.toLowerCase() === 'nepalgunj';
-      const servicePercent = isNepalgunj ? 0.05 : 0.08;
-      const deliveryChargeNPR = isNepalgunj ? 150 : 400;
-
-      const serviceChargeNPR = Math.round(priceNPR * servicePercent);
-      const estimatedPriceNPR = Math.round(priceNPR + serviceChargeNPR + deliveryChargeNPR);
+      const { serviceChargeNPR, deliveryChargeNPR, estimatedPriceNPR } = calculateCharges(
+        productDetails.indianPriceINR,
+        city
+      );
 
       setProductDetails({
         ...productDetails,
@@ -79,14 +115,10 @@ export const App: React.FC = () => {
         throw new Error('Invalid price format returned from scraper.');
       }
       
-      const priceNPR = indianPriceINR * EXCHANGE_RATE;
-      const isNepalgunj = selectedCity.toLowerCase() === 'nepalgunj';
-      const servicePercent = isNepalgunj ? 0.05 : 0.08;
-      const deliveryNPR = isNepalgunj ? 150 : 400;
-
-      const serviceChargeNPR = Math.round(priceNPR * servicePercent);
-      const deliveryChargeNPR = deliveryNPR;
-      const estimatedPriceNPR = Math.round(priceNPR + serviceChargeNPR + deliveryChargeNPR);
+      const { serviceChargeNPR, deliveryChargeNPR, estimatedPriceNPR } = calculateCharges(
+        indianPriceINR,
+        selectedCity
+      );
 
       setProductDetails({
         productUrl: url,
@@ -114,6 +146,8 @@ export const App: React.FC = () => {
     address: string;
     city: string;
     notes: string;
+    latitude?: number;
+    longitude?: number;
   }) => {
     if (!productDetails) return;
 
@@ -123,12 +157,19 @@ export const App: React.FC = () => {
       ...customerData
     };
 
+    // Format coordinates maps links if they exist
+    const mapSection = customerData.latitude !== undefined && customerData.longitude !== undefined
+      ? `🧭 *Location Coordinates:* ${customerData.latitude}, ${customerData.longitude}\n` +
+        `📍 *Map Pointer:* https://www.openstreetmap.org/?mlat=${customerData.latitude}&mlon=${customerData.longitude}#map=16/${customerData.latitude}/${customerData.longitude}\n\n`
+      : '';
+
     // Format the WhatsApp message (matching backend format exactly)
     const simulatedText = 
       `🔔 *New BorderBuy Order!*\n\n` +
       `👤 *Customer Name:* ${customerData.customerName}\n` +
       `📞 *WhatsApp:* ${customerData.whatsappNumber}\n` +
       `📍 *Delivery Address:* ${customerData.address}, ${customerData.city}\n\n` +
+      mapSection +
       `📦 *Product Details:*\n` +
       `• *Name:* ${productDetails.productName}\n` +
       `• *Price (INR):* ₹${productDetails.indianPriceINR}\n` +
@@ -193,11 +234,28 @@ export const App: React.FC = () => {
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-indigo-600 group-hover:w-full transition-all duration-300"></span>
             </span>
             <span 
+              onClick={() => {
+                const element = document.getElementById('testimonials');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                  handleReset();
+                  setTimeout(() => {
+                    document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }
+              }}
+              className="hover:text-indigo-655 cursor-pointer transition-colors duration-200 relative group py-1"
+            >
+              Testimonials
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-indigo-600 group-hover:w-full transition-all duration-300"></span>
+            </span>
+            <span 
               onClick={() => setActiveModal('help')}
               className="hover:text-indigo-655 transition-colors duration-200 relative group py-1 cursor-pointer"
             >
               Help Center
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-indigo-650 group-hover:w-full transition-all duration-300"></span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-indigo-655 group-hover:w-full transition-all duration-300"></span>
             </span>
           </nav>
 
@@ -243,6 +301,23 @@ export const App: React.FC = () => {
                 className="hover:text-indigo-650 py-1.5 border-b border-slate-50 cursor-pointer transition-colors"
               >
                 Pricing Rate
+              </span>
+              <span 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  const element = document.getElementById('testimonials');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    handleReset();
+                    setTimeout(() => {
+                      document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }
+                }}
+                className="hover:text-indigo-650 py-1.5 border-b border-slate-50 cursor-pointer transition-colors"
+              >
+                Testimonials
               </span>
               <span 
                 onClick={() => { setActiveModal('help'); setMobileMenuOpen(false); }}

@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 
+// Lazy-load Leaflet map component to fulfill dynamic performance loading requirements
+const AddressMap = React.lazy(() => import('./AddressMap'));
+
 interface FormData {
   customerName: string;
   whatsappNumber: string;
   address: string;
   city: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface CustomerFormProps {
@@ -27,12 +32,61 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onSubmit, onBack, is
     notes: '',
   });
 
+  const [mapAddressData, setMapAddressData] = useState({
+    province: '',
+    district: '',
+    city: '',
+    ward: '',
+    street: '',
+    postalCode: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined
+  });
+
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleLocationSelect = (addressData: {
+    province: string;
+    district: string;
+    city: string;
+    ward: string;
+    street: string;
+    postalCode: string;
+    latitude: number;
+    longitude: number;
+    displayAddress: string;
+  }) => {
+    setMapAddressData({
+      province: addressData.province,
+      district: addressData.district,
+      city: addressData.city,
+      ward: addressData.ward,
+      street: addressData.street,
+      postalCode: addressData.postalCode,
+      latitude: addressData.latitude,
+      longitude: addressData.longitude
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      address: addressData.displayAddress
+    }));
+
+    // Auto-detect and sync the delivery city in dropdown if matched
+    const cityList = ['nepalgunj', 'kathmandu', 'lalitpur', 'bhaktapur', 'pokhara', 'biratnagar', 'butwal', 'dharan', 'chitwan'];
+    const matchedCity = cityList.find(
+      c => addressData.city.toLowerCase().includes(c) || addressData.district.toLowerCase().includes(c)
+    );
+    if (matchedCity) {
+      const formattedCity = matchedCity.charAt(0).toUpperCase() + matchedCity.slice(1);
+      onCityChange(formattedCity);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,6 +98,12 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onSubmit, onBack, is
 
     if (!customerName.trim() || !whatsappNumber.trim() || !address.trim() || !city.trim()) {
       setError('Please fill in all required fields.');
+      return;
+    }
+
+    // Geolocation address marker validation check
+    if (mapAddressData.latitude === undefined || mapAddressData.longitude === undefined) {
+      setError('Please search or select your delivery location on the interactive map.');
       return;
     }
 
@@ -59,7 +119,12 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onSubmit, onBack, is
       return;
     }
 
-    onSubmit({ ...formData, city });
+    onSubmit({
+      ...formData,
+      city,
+      latitude: mapAddressData.latitude,
+      longitude: mapAddressData.longitude
+    });
   };
 
   return (
@@ -119,10 +184,39 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onSubmit, onBack, is
             <p className="text-xs text-slate-400 mt-1">We'll contact you here to finalize the delivery details.</p>
           </div>
 
+          {/* Delivery Location Map (Leaflet) */}
+          <div className="space-y-3.5 pt-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1">
+              Delivery Location on Map <span className="text-rose-500">*</span>
+            </label>
+            
+            <React.Suspense fallback={
+              <div className="h-64 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center justify-center gap-2 animate-pulse text-xs font-bold text-slate-400">
+                <svg className="animate-spin h-5.5 w-5.5 text-indigo-650" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Loading Interactive Map...</span>
+              </div>
+            }>
+              <AddressMap onLocationSelect={handleLocationSelect} selectedCity={selectedCity} />
+            </React.Suspense>
+
+            {mapAddressData.latitude !== undefined && (
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-emerald-650 bg-emerald-50 border border-emerald-100/70 px-3 py-1.5 rounded-xl w-fit select-none">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span>Coordinates Linked: {mapAddressData.latitude.toFixed(5)}, {mapAddressData.longitude?.toFixed(5)}</span>
+              </div>
+            )}
+          </div>
+
           {/* Delivery Address */}
           <div>
             <label htmlFor="address" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Delivery Address <span className="text-rose-500">*</span>
+              Full Delivery Address <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -134,7 +228,77 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onSubmit, onBack, is
               className="w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-55 transition-all text-slate-850 text-sm sm:text-base"
               disabled={isLoading}
             />
+            <p className="text-[10px] text-slate-400 mt-1.5">You can edit the full address description manually if needed.</p>
           </div>
+
+          {/* Structured Address Breakdown Fields (Editable) */}
+          {mapAddressData.latitude !== undefined && (
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">Address Components (Autofilled & Editable)</div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">State / Province</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.province}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, province: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="Province"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">District</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.district}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, district: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="District"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">City / Municipality</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.city}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, city: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">Ward / Area</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.ward}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, ward: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="Ward"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">Street / Road</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.street}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, street: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="Street / Road"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-450 uppercase mb-1 select-none">Postal Code</label>
+                  <input
+                    type="text"
+                    value={mapAddressData.postalCode}
+                    onChange={(e) => setMapAddressData(prev => ({ ...prev, postalCode: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 text-xs focus:outline-none focus:border-indigo-400"
+                    placeholder="Postal Code"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* City */}
           <div>

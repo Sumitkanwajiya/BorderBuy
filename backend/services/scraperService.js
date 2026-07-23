@@ -14,9 +14,9 @@ class ScraperService {
     this.maxConcurrentScrapes = parseInt(process.env.MAX_CONCURRENT_SCRAPES, 10) || 5;
     this.scrapeQueue = [];
     
-    // Cache configuration (TTL: 15 minutes)
+    // Cache configuration (TTL: 2 minutes for Product Preview)
     this.cache = new Map();
-    this.cacheTTL = 15 * 60 * 1000;
+    this.cacheTTL = 2 * 60 * 1000;
     
     // Concurrency Lock: tracks active scraping promises to avoid simultaneous duplicate fetches
     this.activeScrapePromises = new Map();
@@ -82,30 +82,60 @@ class ScraperService {
   }
 
   // Run scraper execution with queued concurrency locks
-  async scrape(url) {
-    console.log(`[ScraperService] Scrape request received for URL: ${url}`);
+  async scrape(url, bypassCache = false) {
+    const startScrapeTime = Date.now();
+    console.log(`[ScraperService] Scrape request received for URL: ${url} (Bypass Cache: ${bypassCache})`);
     
-    // Check in-memory cache first
-    const cached = this.cache.get(url);
-    if (cached && (Date.now() - cached.timestamp < this.cacheTTL)) {
-      console.log(`[ScraperService] Cache hit for URL: ${url}`);
-      return cached.data;
+    // Check in-memory cache first if not bypassing
+    if (!bypassCache) {
+      const cached = this.cache.get(url);
+      if (cached && (Date.now() - cached.timestamp < this.cacheTTL)) {
+        console.log(`[ScraperService] Cache hit for URL: ${url}`);
+        return cached.data;
+      }
+      console.log(`[ScraperService] Cache miss for URL: ${url}`);
+    } else {
+      console.log(`[ScraperService] Cache bypassed for URL: ${url}`);
     }
 
-    // Coalesce concurrent duplicate requests targeting the exact same URL
-    if (this.activeScrapePromises.has(url)) {
+    // Coalesce concurrent duplicate requests targeting the exact same URL (only if not bypassing)
+    if (!bypassCache && this.activeScrapePromises.has(url)) {
       console.log(`[ScraperService] Duplicate request detected. Coalescing fetch for URL: ${url}`);
       return this.activeScrapePromises.get(url);
     }
 
     const scrapePromise = this.executeScrapeWithConcurrency(url);
-    this.activeScrapePromises.set(url, scrapePromise);
+    if (!bypassCache) {
+      this.activeScrapePromises.set(url, scrapePromise);
+    }
     
     try {
       const result = await scrapePromise;
+      
+      // Calculate and log price difference for final verification (order confirmation / flash sales detection)
+      const cached = this.cache.get(url);
+      if (cached && cached.data) {
+        const prevPrice = parseFloat(cached.data.price);
+        const newPrice = parseFloat(result.price);
+        const diff = newPrice - prevPrice;
+        console.info(`[PriceResolver] Log: Initial scraped price: ₹${prevPrice}, Final verified price: ₹${newPrice}, Price difference: ₹${diff}, Cache status: ${bypassCache ? 'Bypassed' : 'Miss'}, Scraping duration: ${Date.now() - startScrapeTime}ms`);
+      } else {
+        console.info(`[PriceResolver] Log: Initial scraped price: ₹${result.price}, Cache status: Miss, Scraping duration: ${Date.now() - startScrapeTime}ms`);
+      }
+
+      // If we bypassed cache (final verification), update the cache with the new value so subsequent requests see it
+      if (bypassCache) {
+        this.cache.set(url, {
+          data: result,
+          timestamp: Date.now()
+        });
+      }
+      
       return result;
     } finally {
-      this.activeScrapePromises.delete(url);
+      if (!bypassCache) {
+        this.activeScrapePromises.delete(url);
+      }
     }
   }
 

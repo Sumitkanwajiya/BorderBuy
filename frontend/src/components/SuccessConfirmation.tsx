@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, MessageSquare, Home } from 'lucide-react';
 
 interface SuccessConfirmationProps {
@@ -19,8 +19,41 @@ export const SuccessConfirmation: React.FC<SuccessConfirmationProps> = ({
   const cleanPhone = adminPhone.replace(/\D/g, '');
   const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappPrefilledText)}`;
 
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number; color: string; size: number }>>([]);
+
+  useEffect(() => {
+    const colors = ['#6366f1', '#a855f7', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
+    const newParticles = Array.from({ length: 65 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100, // percentage position width
+      delay: Math.random() * 1.5, // seconds
+      duration: 2.2 + Math.random() * 2.2, // seconds
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 8, // size in pixels
+    }));
+    setParticles(newParticles);
+  }, []);
+
   return (
-    <div className="w-full max-w-xl mx-auto px-4 py-8 animate-fade-in text-center">
+    <div className="w-full max-w-xl mx-auto px-4 py-8 animate-fade-in text-center relative">
+      {/* Confetti Rain Container */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="confetti-particle"
+            style={{
+              left: `${p.x}%`,
+              animationDelay: `${p.delay}s`,
+              animationDuration: `${p.duration}s`,
+              backgroundColor: p.color,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+              borderRadius: p.id % 2 === 0 ? '50%' : '15%',
+            }}
+          />
+        ))}
+      </div>
       {/* Success Badge */}
       <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-100 shadow-md">
         <Check className="w-10 h-10 stroke-[3]" />

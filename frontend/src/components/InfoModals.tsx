@@ -22,6 +22,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({ activeModal, onClose, ad
   const [calcCity, setCalcCity] = useState<'Nepalgunj' | 'Other'>('Nepalgunj');
   const [calcResult, setCalcResult] = useState({
     nprConverted: 1600,
+    servicePercent: 0.05,
     serviceFee: 80,
     deliveryFee: 150,
     totalNpr: 1830
@@ -66,14 +67,34 @@ export const InfoModals: React.FC<InfoModalsProps> = ({ activeModal, onClose, ad
   useEffect(() => {
     const inrValue = parseFloat(inrInput) || 0;
     const nprConverted = Math.round(inrValue * 1.6);
-    const servicePercent = calcCity === 'Nepalgunj' ? 0.05 : 0.08;
-    const deliveryFee = calcCity === 'Nepalgunj' ? 150 : 400;
+    const isNepalgunj = calcCity === 'Nepalgunj';
     
+    let servicePercent = 0.08;
+    if (isNepalgunj) {
+      if (inrValue <= 5000) {
+        servicePercent = 0.05;
+      } else if (inrValue <= 10000) {
+        servicePercent = 0.03;
+      } else {
+        servicePercent = 0.02;
+      }
+    } else {
+      if (inrValue <= 5000) {
+        servicePercent = 0.08;
+      } else if (inrValue <= 10000) {
+        servicePercent = 0.05;
+      } else {
+        servicePercent = 0.03;
+      }
+    }
+    
+    const deliveryFee = isNepalgunj ? 150 : 400;
     const serviceFee = Math.round(nprConverted * servicePercent);
     const totalNpr = nprConverted + serviceFee + deliveryFee;
 
     setCalcResult({
       nprConverted,
+      servicePercent,
       serviceFee,
       deliveryFee,
       totalNpr
@@ -210,7 +231,12 @@ export const InfoModals: React.FC<InfoModalsProps> = ({ activeModal, onClose, ad
                 <h4 className="font-bold text-slate-900 text-sm">2. Price Conversion & Fees</h4>
                 <ul className="list-disc pl-5 space-y-1.5">
                   <li><strong>Exchange Rate:</strong> Standard billing conversion rate is locked at <span className="font-bold text-slate-800">1 INR = 1.6 NPR</span>.</li>
-                  <li><strong>Service Charge:</strong> 5% service fee for Nepalgunj pickups or deliveries; 8% service fee for all other delivery destinations in Nepal.</li>
+                  <li><strong>Service Charge:</strong> Calculated based on the product price in INR and the delivery city:
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li><strong>Within Nepalgunj:</strong> 5% for items up to ₹5,000 INR; 3% for items between ₹5,001 and ₹10,000 INR; 2% for items above ₹10,000 INR.</li>
+                      <li><strong>Other Locations in Nepal:</strong> 8% for items up to ₹5,000 INR; 5% for items between ₹5,001 and ₹10,000 INR; 3% for items above ₹10,000 INR.</li>
+                    </ul>
+                  </li>
                   <li><strong>Delivery Charges:</strong> Flat fee of NPR 150 in Nepalgunj; NPR 400 for delivery to all other locations across Nepal.</li>
                 </ul>
               </div>
@@ -459,8 +485,8 @@ export const InfoModals: React.FC<InfoModalsProps> = ({ activeModal, onClose, ad
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center">
                   <span className="text-xs text-slate-400 font-bold block mb-1">SERVICE CHARGE</span>
-                  <span className="text-slate-800 font-extrabold text-base">
-                    5% <span className="text-xs font-normal text-slate-500">Nplgunj</span> / 8% <span className="text-xs font-normal text-slate-500">Other</span>
+                  <span className="text-slate-800 font-extrabold text-xs sm:text-sm">
+                    2%-5% <span className="text-[10px] font-normal text-slate-500">Nplgunj</span> / 3%-8% <span className="text-[10px] font-normal text-slate-500">Other</span>
                   </span>
                 </div>
               </div>
@@ -504,7 +530,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({ activeModal, onClose, ad
                     <span className="font-semibold text-slate-700">₨{calcResult.nprConverted.toLocaleString()} NPR</span>
                   </div>
                   <div className="flex justify-between text-xs font-medium text-slate-500">
-                    <span>Service Fee ({calcCity === 'Nepalgunj' ? '5%' : '8%'}):</span>
+                    <span>Service Fee ({Math.round(calcResult.servicePercent * 100)}%):</span>
                     <span className="font-semibold text-slate-700">₨{calcResult.serviceFee.toLocaleString()} NPR</span>
                   </div>
                   <div className="flex justify-between text-xs font-medium text-slate-500">

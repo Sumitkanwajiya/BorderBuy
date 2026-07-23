@@ -1,3 +1,5 @@
+const priceResolver = require('./resolvers/priceResolver');
+
 /**
  * Fallback generic scraper that extracts product details using OpenGraph tags,
  * Twitter cards, schema microdata, or standard HTML elements.
@@ -102,26 +104,14 @@ async function scrapeGeneric(page, url) {
   const evalDuration = Date.now() - startEval;
   console.log(`[GenericScraper] DOM evaluation query completed in ${evalDuration}ms.`);
 
-  // Clean the price string to numeric-only digits and decimals
-  let cleanedPrice = '0';
-  if (product.price) {
-    const matched = product.price.replace(/[^\d.]/g, '');
-    if (matched) {
-      cleanedPrice = matched;
-      if (cleanedPrice.includes('.')) {
-        const parts = cleanedPrice.split('.');
-        if (parts[1] === '00' || parts[1] === '') {
-          cleanedPrice = parts[0];
-        }
-      }
-    }
-  }
+  // Resolve selling price via centralized resolver
+  const price = await priceResolver(page);
 
   console.log(`[GenericScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
     title: product.title || 'Unknown Product',
-    price: cleanedPrice,
+    price: price,
     image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
     timings: {
       navigation: navDuration,

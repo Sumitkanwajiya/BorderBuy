@@ -23,6 +23,44 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
   const [url, setUrl] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [sliderInr, setSliderInr] = useState<number>(3000);
+  const [sliderCity, setSliderCity] = useState<string>('Nepalgunj');
+
+  const sliderResult = React.useMemo(() => {
+    const nprConverted = Math.round(sliderInr * 1.6);
+    const isNepalgunj = sliderCity.toLowerCase() === 'nepalgunj';
+    let servicePercent = 0.08;
+    
+    if (isNepalgunj) {
+      if (sliderInr <= 5000) {
+        servicePercent = 0.05;
+      } else if (sliderInr <= 10000) {
+        servicePercent = 0.03;
+      } else {
+        servicePercent = 0.02;
+      }
+    } else {
+      if (sliderInr <= 5000) {
+        servicePercent = 0.08;
+      } else if (sliderInr <= 10000) {
+        servicePercent = 0.05;
+      } else {
+        servicePercent = 0.03;
+      }
+    }
+    
+    const deliveryFee = isNepalgunj ? 150 : 400;
+    const serviceFee = Math.round(nprConverted * servicePercent);
+    const totalNpr = nprConverted + serviceFee + deliveryFee;
+
+    return {
+      nprConverted,
+      servicePercent,
+      serviceFee,
+      deliveryFee,
+      totalNpr
+    };
+  }, [sliderInr, sliderCity]);
 
   useEffect(() => {
     if (!url) {
@@ -57,6 +95,38 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       setError(apiError);
     }
   }, [apiError]);
+
+  useEffect(() => {
+    const revealElements = document.querySelectorAll('.scroll-reveal');
+    revealElements.forEach((el) => el.classList.add('reveal-ready'));
+
+    const handleScroll = () => {
+      revealElements.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const windowHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+        // Trigger if the top of the element is visible in the viewport
+        if (rect.top <= windowHeight * 0.92 && rect.bottom >= 0) {
+          el.classList.add('reveal-visible');
+        }
+      });
+    };
+
+    // Run immediately on render to show elements already in screen
+    const animId = requestAnimationFrame(handleScroll);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    
+    // Safety fallback polling to cover rendering delays or embedded viewport iframe setups
+    const intervalId = setInterval(handleScroll, 250);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      clearInterval(intervalId);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +279,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       </form>
 
       {/* Customer Satisfaction & Live Support Badging */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs text-slate-500 font-semibold mb-10 select-none">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs text-slate-500 font-semibold mb-10 select-none scroll-reveal">
         <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full shadow-xs">
           <span className="text-amber-500 text-sm">⭐⭐⭐⭐⭐</span>
           <span>4.9/5 Rating</span>
@@ -230,7 +300,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
       </div>
 
       {/* Brand Logos Footer */}
-      <div className="w-full">
+      <div className="w-full scroll-reveal delay-75">
         <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase mb-5">
           Supported Indian Marketplaces
         </p>
@@ -247,8 +317,137 @@ export const Hero: React.FC<HeroProps> = ({ onGetPrice, isLoading, apiError, sel
         </div>
       </div>
 
+      {/* Interactive Quick Estimate Slider - Premium Mobile-First Layout */}
+      <div className="w-full max-w-xl mx-auto mt-12 p-5 sm:p-6 rounded-3xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-2xl shadow-slate-100/50 scroll-reveal delay-150 relative overflow-hidden">
+        
+        {/* Glow Header Accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600" />
+        
+        <div className="flex items-center justify-between mb-5">
+          <h4 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5 select-none">
+            <span className="text-base sm:text-lg">🧮</span> Quick Cost Estimator
+          </h4>
+          <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-[9px] sm:text-[10px] font-extrabold text-indigo-655 uppercase tracking-wider select-none animate-pulse">
+            Live Rates
+          </span>
+        </div>
+        
+        <div className="space-y-4.5 text-left">
+          
+          {/* Custom value adjustments counter (Crucial for mobile tapping UX) */}
+          <div className="flex items-center justify-between gap-3 bg-slate-50/50 border border-slate-150/70 p-2 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setSliderInr(prev => Math.max(100, prev - 500))}
+              className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-650 rounded-xl transition-all shadow-xs active:scale-95 cursor-pointer text-sm font-bold select-none"
+            >
+              －
+            </button>
+            
+            <div className="flex-1 text-center select-none">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Product Price (INR)</span>
+              <span className="text-xl sm:text-2xl font-black text-indigo-650 font-mono tracking-tight">₹{sliderInr.toLocaleString()}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSliderInr(prev => Math.min(25000, prev + 500))}
+              className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-650 rounded-xl transition-all shadow-xs active:scale-95 cursor-pointer text-sm font-bold select-none"
+            >
+              ＋
+            </button>
+          </div>
+
+          {/* Premium range slider with dynamic background progression */}
+          <div className="px-1">
+            <input 
+              type="range" 
+              min="100" 
+              max="25000" 
+              step="100"
+              value={sliderInr}
+              onChange={(e) => setSliderInr(Number(e.target.value))}
+              style={{
+                '--slider-progress': `${Math.min(100, Math.max(0, ((sliderInr - 100) / (25000 - 100)) * 100))}%`
+              } as React.CSSProperties}
+              className="w-full premium-slider"
+            />
+            <div className="flex justify-between text-[9px] font-extrabold text-slate-400 mt-1.5 uppercase select-none tracking-wider px-0.5">
+              <span>₹100</span>
+              <span>₹12,500</span>
+              <span>₹25,000</span>
+            </div>
+          </div>
+
+          {/* iOS-Style Sliding Segment Control */}
+          <div className="space-y-1.5">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block select-none">Delivery Location</label>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 relative select-none">
+              <button
+                type="button"
+                onClick={() => setSliderCity('Nepalgunj')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center relative z-10 ${
+                  sliderCity === 'Nepalgunj'
+                    ? 'text-indigo-650 font-black'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Nepalgunj (Local Hub)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSliderCity('Other')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center relative z-10 ${
+                  sliderCity === 'Other'
+                    ? 'text-indigo-650 font-black'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Kathmandu & Outer Cities
+              </button>
+              
+              {/* Sliding segment background indicator */}
+              <div 
+                className="absolute top-1.5 bottom-1.5 rounded-xl bg-white shadow-sm transition-all duration-300 ease-out"
+                style={{
+                  left: sliderCity === 'Nepalgunj' ? '6px' : 'calc(50% + 2px)',
+                  width: 'calc(50% - 8px)'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* High-Fidelity Themed Receipt Breakdown */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 space-y-2.5 text-xs font-semibold text-slate-500 relative select-none">
+            
+            {/* Visual dashed dividing accent */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-dashed bg-slate-200" />
+            
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1.5 font-medium">🪙 Base Exchange (1.6x):</span>
+              <span className="font-bold text-slate-750">₨{sliderResult.nprConverted.toLocaleString()} NPR</span>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1.5 font-medium">⚡ Service Fee ({Math.round(sliderResult.servicePercent * 100)}%):</span>
+              <span className="font-bold text-slate-750">₨{sliderResult.serviceFee.toLocaleString()} NPR</span>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1.5 font-medium">🚚 Local Shipping:</span>
+              <span className="font-bold text-slate-750">₨{sliderResult.deliveryFee.toLocaleString()} NPR</span>
+            </div>
+            
+            <div className="flex justify-between items-center text-sm font-extrabold text-slate-900 border-t border-dashed border-slate-200 pt-3.5 mt-2 bg-indigo-50/15 -mx-4.5 px-4.5 py-2.5 rounded-b-2xl">
+              <span className="text-indigo-750 flex items-center gap-1.5">💎 Est. Total NPR:</span>
+              <span className="text-base text-indigo-650 font-mono">₨{sliderResult.totalNpr.toLocaleString()} NPR</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Customer Testimonials Section */}
-      <div className="w-full mt-16 pt-12 border-t border-slate-100/80">
+      <div id="testimonials" className="w-full mt-16 pt-12 border-t border-slate-100/80 scroll-reveal">
         <p className="text-xs font-bold tracking-wider text-indigo-650 uppercase mb-3">
           Customer Testimonials
         </p>

@@ -71,7 +71,7 @@ app.get('/api/health', (req, res) => {
 
 // Main scraping endpoint
 app.post('/api/fetch-product', async (req, res) => {
-  const { url } = req.body;
+  const { url, bypassCache, checkout, forceRefresh } = req.body;
 
   if (!url) {
     return res.status(400).json({ error: 'Product URL is required' });
@@ -83,7 +83,8 @@ app.post('/api/fetch-product', async (req, res) => {
   }
 
   try {
-    const product = await scraperService.scrape(url);
+    const shouldBypass = !!(bypassCache || checkout || forceRefresh);
+    const product = await scraperService.scrape(url, shouldBypass);
     return res.json(product);
   } catch (error) {
     return res.status(500).json({

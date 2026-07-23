@@ -20,6 +20,7 @@ interface PriceEstimationProps {
 
 export const PriceEstimation: React.FC<PriceEstimationProps> = ({ details, onNext, onBack }) => {
   const originalInrToNpr = details.indianPriceINR * details.exchangeRate;
+  const calculatedPercent = originalInrToNpr > 0 ? Math.round((details.serviceChargeNPR / originalInrToNpr) * 100) : 0;
 
   return (
     <div className="w-full max-w-xl mx-auto px-3 sm:px-4 py-4 sm:py-8 animate-fade-in">
@@ -90,7 +91,7 @@ export const PriceEstimation: React.FC<PriceEstimationProps> = ({ details, onNex
 
           <div className="flex justify-between items-center text-xs sm:text-sm py-0.5">
             <span className="text-slate-500 flex items-center gap-1">
-              Service Charge ({details.deliveryChargeNPR === 150 ? '5%' : '8%'})
+              Service Charge ({calculatedPercent}%)
               <span className="group relative">
                 <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-pointer" />
                 <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 text-center">

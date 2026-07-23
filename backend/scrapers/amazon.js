@@ -1,3 +1,5 @@
+const priceResolver = require('./resolvers/priceResolver');
+
 /**
  * Scrapes product details from Amazon India (amazon.in) or Amazon US (amazon.com)
  * Optimized for maximum speed, minimal IPC roundtrips, and zero fixed wait times.
@@ -229,7 +231,7 @@ async function scrapeAmazon(page, url) {
     return result;
   };
 
-  // Run initial DOM evaluation
+  // Run initial DOM evaluation for Title and Image
   const startEval = Date.now();
   let product = await runUnifiedDOMQuery(page);
   let evalDuration = Date.now() - startEval;
@@ -239,49 +241,29 @@ async function scrapeAmazon(page, url) {
     throw new Error('Scraping blocked by Amazon CAPTCHA. Please try again later.');
   }
 
-  // Trigger self-healing location flow if price is hidden geographically
-  if (!product.price) {
-    await setAmazonLocation(page, url);
-    // Query DOM once more after geolocation reload
-    const startEval2 = Date.now();
-    product = await runUnifiedDOMQuery(page);
-    evalDuration += (Date.now() - startEval2);
-  }
-
-  // Enforce title presence
   if (!product.title) {
+    const pageTitle = await page.title().catch(() => 'unknown');
+    console.log(`[AmazonScraper] FAILED. Page HTML title: "${pageTitle}"`);
     throw new Error('Product title not found on Amazon. The URL might be invalid or access was restricted.');
   }
 
-  // Clean price: Extract numeric part
-  let cleanedPrice = '';
-  if (product.price) {
-    let priceVal = product.price;
-    if (priceVal.includes('-')) {
-      priceVal = priceVal.split('-')[0];
-    } else if (priceVal.toLowerCase().includes('to')) {
-      priceVal = priceVal.toLowerCase().split('to')[0];
-    }
-
-    cleanedPrice = priceVal.replace(/[^\d.]/g, '');
-    if (cleanedPrice.includes('.')) {
-      const parts = cleanedPrice.split('.');
-      if (parts[1] === '00' || parts[1] === '') {
-        cleanedPrice = parts[0];
-      }
-    }
-  }
-
-  // Enforce price presence
-  if (!cleanedPrice || cleanedPrice === '0' || parseFloat(cleanedPrice) === 0) {
-    throw new Error('Product price not found. The item might be out of stock, currently unavailable, or restricted in this region.');
+  // Resolve selling price via centralized resolver
+  let price = null;
+  try {
+    price = await priceResolver(page);
+  } catch (err) {
+    console.log('[AmazonScraper] Price unresolved initially. Retrying with geolocation update...');
+    await setAmazonLocation(page, url);
+    const startEval2 = Date.now();
+    price = await priceResolver(page);
+    evalDuration += (Date.now() - startEval2);
   }
 
   console.log(`[AmazonScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
     title: product.title,
-    price: cleanedPrice,
+    price: price,
     image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
     timings: {
       navigation: navDuration,

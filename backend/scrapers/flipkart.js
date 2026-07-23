@@ -1,3 +1,5 @@
+const priceResolver = require('./resolvers/priceResolver');
+
 /**
  * Scrapes product details from Flipkart (flipkart.com)
  * Optimized for minimal IPC roundtrips, fast error checking, and scoped DOM queries.
@@ -187,28 +189,14 @@ const scrapeFlipkart = async (page, url) => {
     throw new Error('Product title not found on Flipkart. The page format may have changed or the link is invalid.');
   }
 
-  // Clean price: Extract numeric part
-  let cleanedPrice = '';
-  if (product.price) {
-    cleanedPrice = product.price.replace(/[^\d.]/g, '');
-    if (cleanedPrice.includes('.')) {
-      const parts = cleanedPrice.split('.');
-      if (parts[1] === '00' || parts[1] === '') {
-        cleanedPrice = parts[0];
-      }
-    }
-  }
-
-  // Enforce price presence
-  if (!cleanedPrice || cleanedPrice === '0') {
-    throw new Error('Product price not found on Flipkart. The item might be out of stock or currently unavailable.');
-  }
+  // Resolve selling price via centralized resolver
+  const price = await priceResolver(page);
 
   console.log(`[FlipkartScraper] Scrape successfully finished in ${Date.now() - startTime}ms. Title: "${product.title}"`);
 
   return {
     title: product.title,
-    price: cleanedPrice,
+    price: price,
     image: product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
     timings: {
       navigation: navDuration,
